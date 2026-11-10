@@ -6,8 +6,7 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  // Production: uncomment and set your app hostname.
-  // "routes": [{ "pattern": "app.stepcanary.com", "custom_domain": true }],
+  "routes": [{ "pattern": "app.stepcanary.com", "custom_domain": true }],
   "triggers": { "crons": ["* * * * *"] },
   "queues": {
     "consumers": [
@@ -31,11 +30,12 @@
       "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5433/postgres"
     }
   ],
+  // Production values. Local development overrides these in .dev.vars.
   "vars": {
-    "APP_URL": "http://localhost:8787",
-    "PING_URL": "http://localhost:8787",
-    "EMAIL_PROVIDER": "console",
-    "EMAIL_FROM": "StepCanary <alerts@example.com>",
+    "APP_URL": "https://app.stepcanary.com",
+    "PING_URL": "https://ping.stepcanary.com",
+    "EMAIL_PROVIDER": "resend",
+    "EMAIL_FROM": "StepCanary <alerts@stepcanary.com>",
     "DEFAULT_PLAN": "free"
   }
   // Secrets (wrangler secret put -c wrangler.app.jsonc):

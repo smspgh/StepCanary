@@ -1,4 +1,8 @@
 # Copy to .dev.vars for local development (`npm run dev`). Never commit .dev.vars.
+# These override the production values in wrangler.app.jsonc.
 TOKEN_SECRET=dev-only-secret-change-me
+APP_URL=http://localhost:8787
+PING_URL=http://localhost:8787
+EMAIL_PROVIDER=console
 # Local accounts get Pro so schedules and active windows can be tried without billing.
 DEFAULT_PLAN=pro
