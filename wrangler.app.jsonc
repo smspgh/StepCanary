@@ -1,0 +1,44 @@
+// App Worker: dashboard + queue consumer + every-minute evaluator.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stepcanary-app",
+  "main": "src/app/index.ts",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  // Production: uncomment and set your app hostname.
+  // "routes": [{ "pattern": "app.stepcanary.com", "custom_domain": true }],
+  "triggers": { "crons": ["* * * * *"] },
+  "queues": {
+    "consumers": [
+      {
+        "queue": "stepcanary-pings",
+        "max_batch_size": 100,
+        // 1 second so the "Listening for your first ping..." screen flips almost instantly.
+        "max_batch_timeout": 1,
+        // The consumer sets its own backoff (30s doubling to 15 min); 100 retries is about a day.
+        "max_retries": 100
+      }
+    ]
+  },
+  "services": [{ "binding": "INGEST", "service": "stepcanary-ingest" }],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      // Replace with the id printed by `wrangler hyperdrive create` (see docs/DEPLOY.md).
+      "id": "REPLACE_WITH_HYPERDRIVE_ID",
+      // Used only by `wrangler dev`; matches `npm run dev:db`.
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5433/postgres"
+    }
+  ],
+  "vars": {
+    "APP_URL": "http://localhost:8787",
+    "PING_URL": "http://localhost:8787",
+    "EMAIL_PROVIDER": "console",
+    "EMAIL_FROM": "StepCanary <alerts@example.com>",
+    "DEFAULT_PLAN": "free"
+  }
+  // Secrets (wrangler secret put -c wrangler.app.jsonc):
+  //   TOKEN_SECRET (same value as the ingest Worker), RESEND_API_KEY or POSTMARK_TOKEN,
+  //   EVALUATOR_HEARTBEAT_URL (Healthchecks.io ping URL for our own evaluator)
+}

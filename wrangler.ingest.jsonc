@@ -1,0 +1,14 @@
+// Ingest Worker: the public ping endpoint. Tiny, rarely deployed, never talks to the database.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "stepcanary-ingest",
+  "main": "src/ingest/index.ts",
+  "compatibility_date": "2026-10-01",
+  "observability": { "enabled": true },
+  // Production: uncomment and set your ping hostname.
+  // "routes": [{ "pattern": "ping.stepcanary.com", "custom_domain": true }],
+  "queues": {
+    "producers": [{ "binding": "PINGS", "queue": "stepcanary-pings" }]
+  }
+  // Secret (wrangler secret put -c wrangler.ingest.jsonc): TOKEN_SECRET
+}

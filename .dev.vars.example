@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local development (`npm run dev`). Never commit .dev.vars.
+TOKEN_SECRET=dev-only-secret-change-me
+# Local accounts get Pro so schedules and active windows can be tried without billing.
+DEFAULT_PLAN=pro
