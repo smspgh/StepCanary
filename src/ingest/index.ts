@@ -27,6 +27,12 @@ const ROUTE = /^\/p\/([^/]+)(?:\/(fail|start))?\/?$/;
 
 export async function handlePing(req: Request, env: IngestEnv, now: number = Date.now()): Promise<Response> {
   const url = new URL(req.url);
+  // A missing secret is a deployment mistake. Fail loudly (so uptime monitoring catches it)
+  // rather than accept pings we cannot validate.
+  if (!env.TOKEN_SECRET) {
+    console.error('config_error TOKEN_SECRET is not set on the ingest Worker');
+    return json({ ok: false, error: 'service_misconfigured' }, 503);
+  }
   if (url.pathname === '/' || url.pathname === '/healthz') return json({ ok: true, service: 'stepcanary-ingest' });
 
   const match = ROUTE.exec(url.pathname);

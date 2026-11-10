@@ -45,6 +45,7 @@ export default {
   async scheduled(_ctrl: ScheduledController, env: AppEnv, ctx: ExecutionContext): Promise<void> {
     const { db, close } = connect(env.HYPERDRIVE.connectionString);
     try {
+      if (!env.TOKEN_SECRET) throw new Error('config_error TOKEN_SECRET is not set on the app Worker');
       const now = Date.now();
       const canary = await canaryToken(env.TOKEN_SECRET);
       const summary = await runEvaluator(db, {

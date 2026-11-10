@@ -117,6 +117,14 @@ describe('ping endpoint', () => {
     expect(sent[0].shape).toBeUndefined();
   });
 
+  it('fails loudly instead of accepting pings when TOKEN_SECRET is missing', async () => {
+    const { env, sent } = fakeEnv();
+    const broken = { ...env, TOKEN_SECRET: undefined as unknown as string };
+    expect((await handlePing(new Request('https://ping.test/healthz'), broken)).status).toBe(503);
+    expect((await handlePing(new Request(`https://ping.test/p/${await makeToken(SECRET)}`), broken)).status).toBe(503);
+    expect(sent).toEqual([]);
+  });
+
   it('retries the queue once, and still answers 200 if the queue is down', async () => {
     const token = await makeToken(SECRET);
     const flaky = fakeEnv(1);
