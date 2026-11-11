@@ -124,6 +124,6 @@ email, one "Recovered" email via Resend, and the Healthchecks.io heartbeat.
 
 - **New Cloudflare account:** open Workers & Pages in the dashboard once before deploying. Until the
   account has a workers.dev subdomain, cron schedules and queue consumers fail to attach (error 10063).
-- **:** the argument is the secret's name. Paste the value only at the
+- **`wrangler secret put NAME`:** the argument is the secret's name. Paste the value only at the
   prompt. Secret names are visible, so a value typed as the name must be treated as leaked.
 - **New cron schedules** can take several minutes to start firing after the first deploy.
