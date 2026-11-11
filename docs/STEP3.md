@@ -17,8 +17,9 @@ Everything except paid upgrades works without Stripe. Until Part B is done the P
    npm run migrate
    ```
 
-   Expect `= 0001_init.sql (already applied)`, then `+ 0002_step3.sql` and
-   `+ 0003_baseline_notice.sql`. The change only adds
+   Expect `= 0001_init.sql (already applied)`, then `+ 0002_step3.sql`,
+   `+ 0003_baseline_notice.sql` and `+ 0004_pending_plan_change.sql`. Always run migrations
+   **before** deploying code that needs them. The change only adds
    tables and columns, so the currently deployed code keeps working while you do the next steps.
 
 2. **Create the channel encryption key** and store it in your password manager as
@@ -60,7 +61,16 @@ same steps in live mode.
 
 2. **Customer portal** (Stripe → Settings → Billing → Customer portal): turn it on, and allow
    customers to switch plans between the two prices, update payment methods and cancel.
-   Plan changes for existing subscribers happen here, not in our app.
+   Plan changes for existing subscribers happen here, not in our app. Two settings matter:
+   - **Cancellations:** cancel at the **end of the billing period**, so customers keep what
+     they paid for.
+   - **Downgrades** (under plan switching, "when switching to a cheaper subscription"): choose
+     **wait until end of billing period to update**. With the default ("update immediately") a
+     customer who moves from Agency to Pro loses Agency features at once and gets a credit
+     instead. Upgrades should stay immediate.
+
+   The Plan page in StepCanary shows either pending change ("cancelled, active until…" or
+   "changes to Pro on…") and keeps the current plan until Stripe says the period has ended.
 
 3. **Webhook** (Stripe → Developers → Webhooks → Add endpoint):
    - URL: `https://app.stepcanary.com/webhooks/stripe`

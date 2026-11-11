@@ -1,7 +1,7 @@
 // Magic-link login. Only hashes of login tokens and session tokens are stored.
 
 import { randomId, randomSecret, sha256Hex } from '../shared/token';
-import { iso, type Db } from './db';
+import { iso, ms, type Db } from './db';
 
 export const LOGIN_TTL_MS = 15 * 60_000;
 export const SESSION_TTL_MS = 30 * 86_400_000;
@@ -69,16 +69,32 @@ export interface Account {
   email: string;
   plan: string;
   stripeCustomerId?: string | null;
+  /** The subscription is cancelled and the paid plan ends at this time (epoch ms). */
+  planCancelAt?: number | null;
+  /** A plan switch scheduled for later, e.g. a downgrade at the end of the paid period. */
+  planChangeTo?: string | null;
+  planChangeAt?: number | null;
 }
 
 export async function accountForSession(db: Db, sessionToken: string | undefined, now: number): Promise<Account | null> {
   if (!sessionToken) return null;
   const rows = await db.query(
-    `SELECT a.id, a.email, a.plan, a.stripe_customer_id FROM sessions s JOIN accounts a ON a.id = s.account_id
+    `SELECT a.id, a.email, a.plan, a.stripe_customer_id, a.plan_cancel_at, a.plan_change_to, a.plan_change_at
+       FROM sessions s JOIN accounts a ON a.id = s.account_id
       WHERE s.token_hash = $1 AND s.expires_at > $2::timestamptz`,
     [await sha256Hex(sessionToken), iso(now)],
   );
-  return rows[0] ? { id: rows[0].id, email: rows[0].email, plan: rows[0].plan, stripeCustomerId: rows[0].stripe_customer_id ?? null } : null;
+  const r = rows[0];
+  if (!r) return null;
+  return {
+    id: r.id,
+    email: r.email,
+    plan: r.plan,
+    stripeCustomerId: r.stripe_customer_id ?? null,
+    planCancelAt: ms(r.plan_cancel_at),
+    planChangeTo: r.plan_change_to ?? null,
+    planChangeAt: ms(r.plan_change_at),
+  };
 }
 
 export async function destroySession(db: Db, sessionToken: string | undefined): Promise<void> {

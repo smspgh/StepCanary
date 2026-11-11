@@ -4,7 +4,7 @@ import type { Child, FC } from 'hono/jsx';
 import { describeExpectation, formatDuration } from '../core/describe';
 import { describeChanges, diffShape } from '../core/drift';
 import type { CheckConfig, CheckStatus } from '../core/evaluate';
-import { PLANS, type PlanLimits } from '../core/plans';
+import { limitsFor, PLANS, type PlanLimits } from '../core/plans';
 import { baselineRows, learningPeriod, learningReadyAt, LEARNING_DAYS } from '../core/volume';
 import { shapeKeys } from '../shared/fingerprint';
 import { FLAG_MALFORMED, FLAG_THROTTLED, FLAG_TOO_LARGE } from '../shared/messages';
@@ -58,7 +58,8 @@ const JS = `
 function rel(ms){var s=Math.round(ms/1000);if(s<0)s=0;if(s<60)return s+'s ago';var m=Math.round(s/60);if(m<60)return m+' min ago';
 var h=Math.round(m/60);if(h<48)return h+' h ago';return Math.round(h/24)+' days ago'}
 function times(){document.querySelectorAll('time[datetime]').forEach(function(el){var d=new Date(el.getAttribute('datetime'));
-el.title=d.toLocaleString();el.textContent=el.hasAttribute('data-abs')?d.toLocaleString():rel(Date.now()-d.getTime())})}
+el.title=d.toLocaleString();if(el.hasAttribute('data-date')){el.textContent=d.toLocaleDateString(undefined,{day:'numeric',month:'long',year:'numeric'});return}
+el.textContent=el.hasAttribute('data-abs')?d.toLocaleString():rel(Date.now()-d.getTime())})}
 times();setInterval(times,30000);
 document.querySelectorAll('[data-copy]').forEach(function(b){b.addEventListener('click',function(){
 navigator.clipboard.writeText(b.getAttribute('data-copy')).then(function(){var t=b.textContent;b.textContent='Copied';setTimeout(function(){b.textContent=t},1200)})})});
@@ -134,6 +135,13 @@ export const Layout: FC<{ title: string; account?: Account | null; nav?: NavKey;
 
 const Time: FC<{ at: number | null; abs?: boolean }> = ({ at, abs }) =>
   at == null ? <span class="muted">never</span> : <time datetime={new Date(at).toISOString()} {...(abs ? { 'data-abs': '' } : {})}>{new Date(at).toISOString()}</time>;
+
+/** A calendar date, shown in the viewer's own locale once the page script runs. */
+const DateOnly: FC<{ at: number }> = ({ at }) => (
+  <time datetime={new Date(at).toISOString()} data-date="">
+    {new Date(at).toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' })}
+  </time>
+);
 
 const Status: FC<{ status: CheckStatus }> = ({ status }) => <span class={`badge ${status}`}>{status}</span>;
 
@@ -1009,6 +1017,19 @@ export const BillingPage: FC<{ account: Account; limits: PlanLimits; activeCheck
     <p>
       You are on the <strong>{limits.label}</strong> plan, using {activeChecks} of {limits.maxChecks} checks.
     </p>
+    {limits.plan !== 'free' && account.planCancelAt ? (
+      <div class="banner">
+        <strong>Your subscription is cancelled.</strong> You keep everything in {limits.label} until <DateOnly at={account.planCancelAt} />,
+        because that time is already paid for. After that your account moves to Free and checks over the Free limit are paused, not
+        deleted. Changed your mind? Use <strong>Manage billing</strong> to keep your plan.
+      </div>
+    ) : null}
+    {limits.plan !== 'free' && !account.planCancelAt && account.planChangeTo && account.planChangeAt ? (
+      <div class="banner">
+        <strong>A plan change is scheduled.</strong> You keep everything in {limits.label} until <DateOnly at={account.planChangeAt} />,
+        because that time is already paid for. On that date your plan changes to {limitsFor(account.planChangeTo).label}.
+      </div>
+    ) : null}
     {!configured ? <div class="banner">Paid plans are not available yet.</div> : null}
     <div class="plans">
       {(['free', 'pro', 'agency'] as const).map((p) => (

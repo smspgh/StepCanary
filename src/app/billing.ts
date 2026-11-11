@@ -7,7 +7,7 @@
 import { featuresNotInPlan, limitsFor, type Plan, type PlanLimits } from '../core/plans';
 import type { Account } from './auth';
 import { pauseCheck, resumeCheck } from './checks';
-import { toCheck, type Db } from './db';
+import { iso, toCheck, type Db } from './db';
 
 export interface BillingEnv {
   STRIPE_SECRET_KEY?: string;
@@ -97,10 +97,54 @@ export async function verifyStripeSignature(payload: string, header: string | nu
 export function planFromSubscription(sub: any, env: BillingEnv): Plan {
   // past_due keeps access while Stripe retries the card; it becomes canceled/unpaid if that fails.
   if (!sub || !['active', 'trialing', 'past_due'].includes(sub.status)) return 'free';
-  const prices: string[] = (sub.items?.data ?? []).map((i: any) => i?.price?.id).filter(Boolean);
+  return planFromPrices((sub.items?.data ?? []).map((i: any) => i?.price?.id).filter(Boolean), env);
+}
+
+function planFromPrices(prices: string[], env: BillingEnv): Plan {
   if (env.STRIPE_PRICE_AGENCY && prices.includes(env.STRIPE_PRICE_AGENCY)) return 'agency';
   if (env.STRIPE_PRICE_PRO && prices.includes(env.STRIPE_PRICE_PRO)) return 'pro';
   return 'free';
+}
+
+export interface PendingChange {
+  /** The subscription has been cancelled and ends at this time (epoch ms). */
+  cancelAt: number | null;
+  /** A plan switch Stripe has scheduled for later (e.g. a downgrade at the end of the period). */
+  changeTo: Plan | null;
+  changeAt: number | null;
+}
+
+const NO_PENDING: PendingChange = { cancelAt: null, changeTo: null, changeAt: null };
+
+/**
+ * What is scheduled to happen to a subscription. The current plan stays in force until then;
+ * this is only so the Plan page can tell the customer what is coming.
+ */
+export async function pendingChange(env: BillingEnv, sub: any, now: number, fetchImpl: FetchFn = fetch): Promise<PendingChange> {
+  const current = planFromSubscription(sub, env);
+  if (current === 'free') return NO_PENDING;
+
+  // Newer Stripe API versions report the period end on each item rather than on the subscription.
+  const periodEnd: number | undefined = sub.current_period_end ?? sub.items?.data?.[0]?.current_period_end;
+  if (sub.cancel_at) return { ...NO_PENDING, cancelAt: sub.cancel_at * 1000 };
+  if (sub.cancel_at_period_end && periodEnd) return { ...NO_PENDING, cancelAt: periodEnd * 1000 };
+
+  const scheduleId: string | undefined = typeof sub.schedule === 'string' ? sub.schedule : sub.schedule?.id;
+  if (!scheduleId) return NO_PENDING;
+  try {
+    const schedule = await stripe(env, 'GET', `/subscription_schedules/${encodeURIComponent(scheduleId)}`, {}, fetchImpl);
+    const next = (schedule.phases ?? [])
+      .filter((p: any) => typeof p.start_date === 'number' && p.start_date * 1000 > now)
+      .sort((a: any, b: any) => a.start_date - b.start_date)[0];
+    if (!next) return NO_PENDING;
+    const prices: string[] = (next.items ?? []).map((i: any) => (typeof i.price === 'string' ? i.price : i.price?.id)).filter(Boolean);
+    const target = planFromPrices(prices, env);
+    return target === current ? NO_PENDING : { cancelAt: null, changeTo: target, changeAt: next.start_date * 1000 };
+  } catch (err) {
+    // Purely informational: never let it stop the plan itself from being applied.
+    console.error('stripe_schedule_lookup_failed', String(err));
+    return NO_PENDING;
+  }
 }
 
 /**
@@ -196,11 +240,14 @@ export async function handleStripeEvent(db: Db, env: BillingEnv, event: any, now
   const plan = planFromSubscription(sub, env);
   if (plan === 'free' && current && current !== sub.id) return 'stale_subscription';
 
-  await db.query('UPDATE accounts SET stripe_customer_id = COALESCE($2, stripe_customer_id), stripe_subscription_id = $3 WHERE id = $1', [
-    accountId,
-    customerId ?? null,
-    plan === 'free' ? null : sub.id,
-  ]);
+  const pending = await pendingChange(env, sub, now, fetchImpl);
+  await db.query(
+    `UPDATE accounts SET stripe_customer_id = COALESCE($2, stripe_customer_id), stripe_subscription_id = $3,
+            plan_cancel_at = $4::timestamptz, plan_change_to = $5, plan_change_at = $6::timestamptz
+      WHERE id = $1`,
+    [accountId, customerId ?? null, plan === 'free' ? null : sub.id, iso(pending.cancelAt), pending.changeTo, iso(pending.changeAt)],
+  );
   await applyPlan(db, accountId, plan, now);
-  return `plan=${plan}`;
+  const note = pending.cancelAt ? ' cancels_later' : pending.changeTo ? ` then=${pending.changeTo}` : '';
+  return `plan=${plan}${note}`;
 }
