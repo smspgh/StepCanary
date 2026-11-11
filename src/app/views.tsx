@@ -280,7 +280,7 @@ const Notes: FC<{ check: Check; latestGapEnd: number | null; now: number }> = ({
 // --- pages --------------------------------------------------------------------------------------
 
 const LANDING_DESCRIPTION =
-  'StepCanary watches your Zapier, Make, n8n and Pipedream automations. Add one HTTP step; if an automation stops, slows down or starts sending blank data, you get a plain-English alert.';
+  'StepCanary watches your Zapier, Make, and n8n automations. Add one HTTP step; if an automation stops, slows down or starts sending blank data, you get a plain-English alert.';
 
 const CATCHES: [string, string][] = [
   ['It stopped running', 'The Zap was switched off, a connection expired, or the trigger quietly stopped firing. You hear about it within minutes, not when a client asks where their leads went.'],
@@ -294,7 +294,7 @@ const FAQ: [string, string][] = [
   ['Do you need access to my Zapier or Make account?', 'No. There is nothing to connect or authorize. You add one ordinary HTTP step to the automation, pointing at a private URL we give you. Remove the step and we are gone.'],
   ['What do you store?', 'Your email address, your check settings, and when each ping arrived. If you turn on payload monitoring we keep the names and types of the fields (“email: text”), never the values. Payments are handled by Stripe.'],
   ['Will it wake me up for nothing?', 'It is built not to. Business-hours automations can be given active hours so quiet nights and weekends never alert. Volume checks are compared by day of the week. And if we have a problem on our side, we show a “monitoring gap” instead of telling you your automation is down.'],
-  ['Does it work on Zapier’s free plan?', 'The step uses “Webhooks by Zapier,” which Zapier includes on its paid plans. Make, n8n and Pipedream include HTTP steps on every plan.'],
+  ['Does it work on Zapier’s free plan?', 'The step uses “Webhooks by Zapier,” which Zapier includes on its paid plans. Make and n8n include HTTP steps on every plan.'],
   ['What happens if I move to a smaller plan?', 'Nothing is deleted. Checks over the smaller plan’s limit are paused, starting with the ones that pinged least recently, and resume if you upgrade again.'],
   ['Can I cancel?', 'Any time, from the Plan page. You keep what you paid for until the end of the billing period.'],
 ];
@@ -303,7 +303,7 @@ export const LandingPage: FC = () => (
   <Layout title="Know when your automations stop" description={LANDING_DESCRIPTION} wide>
     <section class="hero">
       <div class="inner">
-        <p class="eyebrow">For Zapier, Make, n8n and Pipedream</p>
+        <p class="eyebrow">For Zapier, Make, and n8n</p>
         <h1>Know the moment an automation stops, before your client does.</h1>
         <p class="lede">
           Add one HTTP step to a Zap, scenario or workflow. If it stops running, runs far less than usual, or starts sending blank data,
@@ -374,8 +374,7 @@ export const LandingPage: FC = () => (
         </div>
         <p class="muted small" style="text-align:center">A real alert. It says which automation, what we expected, and what happened.</p>
         <p style="text-align:center">
-          Step-by-step guides: <a href="/guides/zapier">Zapier</a> · <a href="/guides/make">Make</a> · <a href="/guides/n8n">n8n</a> ·{' '}
-          <a href="/guides/pipedream">Pipedream</a>
+          Step-by-step guides: <a href="/guides/zapier">Zapier</a> · <a href="/guides/make">Make</a> · <a href="/guides/n8n">n8n</a>
         </p>
       </div>
     </section>
@@ -458,12 +457,12 @@ export const LandingPage: FC = () => (
   </Layout>
 );
 
-export const GuidesIndexPage: FC<{ account?: Account | null; guides: { slug: string; platform: string; summary: string }[]; checkId?: string }> = ({
+export const GuidesIndexPage: FC<{ account?: Account | null; guides: { slug: string; platform: string; summary: string; closing?: string }[]; checkId?: string }> = ({
   account,
   guides,
   checkId,
 }) => (
-  <Layout title="Setup guides" account={account} nav="guides" description="Step-by-step guides for monitoring Zapier, Make, n8n and Pipedream automations with StepCanary.">
+  <Layout title="Setup guides" account={account} nav="guides" description="Step-by-step guides for monitoring Zapier, Make, and n8n automations with StepCanary.">
     <h1>Setup guides</h1>
     <a class="card tile" href="/guides/checks">
       <strong>Start here: What is a check?</strong>
@@ -471,13 +470,23 @@ export const GuidesIndexPage: FC<{ account?: Account | null; guides: { slug: str
     </a>
     <p class="muted">Then pick the tool your automation runs in. Each guide takes about three minutes.</p>
     <div class="grid">
-      {guides.map((g) => (
-        <a class="card tile" href={`/guides/${g.slug}${checkId ? `?check=${checkId}` : ''}`}>
-          <strong>{g.platform}</strong>
-          <p>{g.summary}</p>
-        </a>
-      ))}
+      {guides
+        .filter((g) => !g.closing)
+        .map((g) => (
+          <a class="card tile" href={`/guides/${g.slug}${checkId ? `?check=${checkId}` : ''}`}>
+            <strong>{g.platform}</strong>
+            <p>{g.summary}</p>
+          </a>
+        ))}
     </div>
+    {guides
+      .filter((g) => g.closing)
+      .map((g) => (
+        <p class="muted small" style="margin-top:18px">
+          Already on {g.platform}? {g.closing}{' '}
+          <a href={`/guides/${g.slug}${checkId ? `?check=${checkId}` : ''}`}>{g.platform} guide for existing users</a>
+        </p>
+      ))}
   </Layout>
 );
 
@@ -883,7 +892,7 @@ const PlatformSettings: FC<{ url: string; checkId: string }> = ({ url, checkId }
         <GuideLink slug="n8n" name="n8n" checkId={checkId} />
       </details>
       <details>
-        <summary>Pipedream</summary>
+        <summary>Pipedream (existing users)</summary>
         <dl>
           <dt>Note</dt><dd>Pipedream Workflows shuts down on March 31, 2027, and no longer accepts new signups.</dd>
           <dt>Add step</dt><dd>A Node.js code step as the last step (recommended), using the code in the guide below.</dd>

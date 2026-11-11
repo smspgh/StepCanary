@@ -1,6 +1,6 @@
 # StepCanary
 
-A dead man's switch for no-code automations (Zapier, Make, n8n, Pipedream). Users add one HTTP
+A dead man's switch for no-code automations (Zapier, Make, n8n). Users add one HTTP
 step that pings a unique URL; if the pings stop, StepCanary alerts them in plain English.
 
 Status: **Step 3**. Built and tested: checks with interval, schedule, active-window and
@@ -27,7 +27,7 @@ automation ──HTTP──▶ ingest Worker ──▶ Queue ──▶ app Worke
 | `docs/DEPLOY.md` | First deployment, step by step. |
 | `docs/STEP3.md` | Rolling out Step 3, Stripe setup, and how the new features behave. |
 | `docs/RUNBOOK.md` | What to do when something breaks. |
-| `docs/guides/` | Customer onboarding guides for Zapier, Make, n8n and Pipedream, served in the app at `/guides`. Run `npm run build:guides` after editing one. |
+| `docs/guides/` | Customer onboarding guides for Zapier, Make, and n8n (plus Pipedream for existing users, until it shuts down on March 31, 2027), served in the app at `/guides`. Run `npm run build:guides` after editing one. |
 | `templates/n8n/` | Importable n8n workflows, served at `/templates/n8n/…` with the customer's ping URL filled in. Imported and run on n8n 2.47.3 on Nov 10, 2026. Run `npm run build:guides` after editing one. |
 | `docs/LAUNCH-CHECKLIST.md` | What to finish before the first paying customer. |
 | `docs/MAINTENANCE.md` | Recurring tasks with time estimates. |

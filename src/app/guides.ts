@@ -8,13 +8,20 @@ export interface GuideInfo {
   slug: string;
   platform: string;
   summary: string;
+  /** Set when the platform is being retired: shown apart from the current platforms. */
+  closing?: string;
 }
 
 export const GUIDES: GuideInfo[] = [
   { slug: 'zapier', platform: 'Zapier', summary: 'Add a “Webhooks by Zapier” POST step to the end of a Zap.' },
   { slug: 'make', platform: 'Make', summary: 'Add an HTTP “Make a request” module to the end of a scenario.' },
   { slug: 'n8n', platform: 'n8n', summary: 'Add an HTTP Request node to the end of a workflow.' },
-  { slug: 'pipedream', platform: 'Pipedream', summary: 'Add a “Send any HTTP Request” step to the end of a workflow.' },
+  {
+    slug: 'pipedream',
+    platform: 'Pipedream',
+    summary: 'Add a Node.js code step to the end of a workflow.',
+    closing: 'Pipedream Workflows shuts down on March 31, 2027, and no longer accepts new signups.',
+  },
 ];
 
 /** "What is a check?": the concept page every other page links to for a definition. */

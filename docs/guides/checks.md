@@ -76,5 +76,5 @@ invoicing, client reporting. A check that is paused doesn't count against your p
 
 ## Set one up
 
-Pick your tool: [Zapier](/guides/zapier), [Make](/guides/make), [n8n](/guides/n8n), or
-[Pipedream](/guides/pipedream). Each guide takes about three minutes.
+Pick your tool: [Zapier](/guides/zapier), [Make](/guides/make), or [n8n](/guides/n8n). Each
+guide takes about three minutes.

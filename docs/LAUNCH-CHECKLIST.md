@@ -25,7 +25,7 @@ any wording that does not match the screen.
 - [ ] n8n: follow `docs/guides/n8n.md`.
 - [ ] Pipedream: follow `docs/guides/pipedream.md`.
 - [ ] Make template: build the HTTP step once in a free Make account (HTTP V4, settings from `docs/guides/make.md`), export the blueprint, and add it under `templates/make/`. A hand-written blueprint was not shipped because the V4 file format could not be confirmed from documentation.
-- [ ] Decide Pipedream's place on the landing page: Pipedream Workflows shuts down March 31, 2027 and accepts no new signups. The guide already says so.
+- [x] Pipedream Workflows shuts down March 31, 2027 and accepts no new signups (confirmed on pipedream.com, Nov 10, 2026). It is no longer pitched on the landing page; the guide stays, labeled for existing users. Remove the guide after the shutdown date.
 - [ ] Take the screenshots named in each guide's placeholders and add them.
 - [ ] On one platform, map a field, enable drift, then blank the field: the drift alert arrives and "Mark as optional" silences it.
 - [x] Guides are published in the app at `/guides` and linked from every check page (with that check's ping URL filled in). After editing a guide in `docs/guides/`, run `npm run build:guides` and deploy.

@@ -40,7 +40,7 @@ describe('the "What is a check?" page', () => {
       expect(page.html, term).toContain(`<td><strong>${term}</strong></td>`);
     }
     for (const status of ['New', 'Up', 'Late', 'Down', 'Paused']) expect(page.html, status).toContain(`<td><strong>${status}</strong></td>`);
-    for (const slug of ['zapier', 'make', 'n8n', 'pipedream']) expect(page.html).toContain(`href="/guides/${slug}"`);
+    for (const slug of ['zapier', 'make', 'n8n']) expect(page.html).toContain(`href="/guides/${slug}"`);
   });
 
   it('is linked from the top of every platform guide', () => {
