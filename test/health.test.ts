@@ -97,10 +97,32 @@ describe('check form validation', () => {
 
   it('accepts an interval check', () => {
     const r = validateCheckForm(base, PLANS.free);
-    expect(r).toEqual({
+    expect(r).toMatchObject({
       ok: true,
-      value: { name: 'Lead form', cfg: { mode: 'interval', intervalSeconds: 7200, cron: null, timezone: 'Europe/London', graceSeconds: 900, activeWindow: null } },
+      value: {
+        name: 'Lead form',
+        cfg: { mode: 'interval', intervalSeconds: 7200, cron: null, timezone: 'Europe/London', graceSeconds: 900, activeWindow: null },
+        driftEnabled: false,
+      },
     });
+  });
+
+  it('accepts volume mode and payload drift on Pro, and rejects them on Free', () => {
+    const form = { name: 'Orders', mode: 'volume', volume_pct: '40', timezone: 'UTC', drift_enabled: '1' };
+    const pro = validateCheckForm(form, PLANS.pro);
+    expect(pro.ok && pro.value).toMatchObject({ cfg: { mode: 'volume', volumeThresholdPct: 40, intervalSeconds: null }, driftEnabled: true });
+    const free = validateCheckForm(form, PLANS.free);
+    expect(!free.ok && free.errors).toHaveLength(2);
+    expect(validateCheckForm({ ...form, volume_pct: '150' }, PLANS.pro).ok).toBe(false);
+  });
+
+  it('refuses a check with no alert destination, and only offers folders on Agency', () => {
+    const none = validateCheckForm({ ...base, channels_shown: '1' }, PLANS.pro);
+    expect(!none.ok && none.errors[0]).toContain('at least one place');
+    const some = validateCheckForm({ ...base, channels_shown: '1', channel_ids: ['a', 'b'], folder_id: 'f1' }, PLANS.pro);
+    expect(some.ok && some.value).toMatchObject({ channelIds: ['a', 'b'], folderId: null });
+    const agency = validateCheckForm({ ...base, folder_id: 'f1' }, PLANS.agency);
+    expect(agency.ok && agency.value.folderId).toBe('f1');
   });
 
   it('accepts an active window on Pro and rejects it on Free', () => {

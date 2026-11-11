@@ -4,13 +4,48 @@
 // All evaluation happens later in the app Worker, off the queue.
 
 import { shapeHash } from '../shared/fingerprint';
-import type { PingKind, PingMessage } from '../shared/messages';
+import { FLAG_THROTTLED, type PingKind, type PingMessage } from '../shared/messages';
 import { TOKEN_PATTERN, verifyToken } from '../shared/token';
 import { readPayload } from './payload';
+
+export interface Limiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
 
 export interface IngestEnv {
   PINGS: Queue<PingMessage>;
   TOKEN_SECRET: string;
+  /** Per-token ceiling (60 pings/minute). Above it, pings are acknowledged but not queued. */
+  PING_LIMITER?: Limiter;
+  /** 1/minute per token: how often a throttled check may send its 'still looping' marker. */
+  MARKER_LIMITER?: Limiter;
+}
+
+/** True if the limiter lets this through. Fails open: a limiter outage must never drop pings. */
+async function allowed(limiter: Limiter | undefined, key: string): Promise<boolean> {
+  if (!limiter) return true;
+  try {
+    return (await limiter.limit({ key })).success;
+  } catch {
+    return true;
+  }
+}
+
+async function enqueue(env: IngestEnv, msg: PingMessage): Promise<boolean> {
+  try {
+    await env.PINGS.send(msg);
+    return true;
+  } catch {
+    try {
+      await env.PINGS.send(msg);
+      return true;
+    } catch (err) {
+      // Still 200 to the caller: we never break a customer's workflow step. A systemic queue
+      // failure also stops the canary, so the evaluator declares a monitoring gap, not an outage.
+      console.error('queue_send_failed', String(err));
+      return false;
+    }
+  }
 }
 
 const HEADERS = {
@@ -51,6 +86,17 @@ export async function handlePing(req: Request, env: IngestEnv, now: number = Dat
   }
 
   const kind: PingKind = match[2] === 'fail' ? 'fail' : match[2] === 'start' ? 'start' : 'ok';
+
+  // Runaway-loop protection, before the body is even read. A looping automation still gets its
+  // 200s, but costs us one small queue message a minute instead of thousands. That marker keeps
+  // the check alive and raises the 'Runaway loop detected' alert.
+  if (!(await allowed(env.PING_LIMITER, token))) {
+    if (await allowed(env.MARKER_LIMITER, `m:${token}`)) {
+      await enqueue(env, { id: crypto.randomUUID(), t: token, ts: now, k: 'ok', f: FLAG_THROTTLED });
+    }
+    return json({ ok: true, throttled: true });
+  }
+
   const payload = await readPayload(req, url);
 
   const msg: PingMessage = { id: crypto.randomUUID(), t: token, ts: now, k: kind, f: payload.flags };
@@ -59,20 +105,7 @@ export async function handlePing(req: Request, env: IngestEnv, now: number = Dat
     msg.sh = await shapeHash(payload.shape);
   }
 
-  let queued = true;
-  try {
-    await env.PINGS.send(msg);
-  } catch {
-    try {
-      await env.PINGS.send(msg);
-    } catch (err) {
-      // Still 200: we never break a customer's workflow step. A systemic queue failure also stops
-      // the canary, which makes the evaluator declare a monitoring gap instead of alerting.
-      queued = false;
-      console.error('queue_send_failed', String(err));
-    }
-  }
-
+  const queued = await enqueue(env, msg);
   return json(queued ? { ok: true } : { ok: true, queued: false });
 }
 

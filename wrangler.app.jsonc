@@ -37,7 +37,10 @@
     "EMAIL_FROM": "StepCanary <alerts@stepcanary.com>",
     "DEFAULT_PLAN": "free"
   }
-  // Secrets (wrangler secret put -c wrangler.app.jsonc):
-  //   TOKEN_SECRET (same value as the ingest Worker), RESEND_API_KEY or POSTMARK_TOKEN,
-  //   EVALUATOR_HEARTBEAT_URL (Healthchecks.io ping URL for our own evaluator)
+  // Secrets (npx wrangler secret put NAME -c wrangler.app.jsonc):
+  //   TOKEN_SECRET            same value as the ingest Worker; never change it
+  //   CHANNEL_KEY             encrypts Slack/Discord/webhook URLs; never change it
+  //   RESEND_API_KEY          or POSTMARK_TOKEN
+  //   EVALUATOR_HEARTBEAT_URL Healthchecks.io ping URL for our own evaluator
+  //   STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PRICE_PRO, STRIPE_PRICE_AGENCY (billing)
 }

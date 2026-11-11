@@ -8,6 +8,12 @@
   "routes": [{ "pattern": "ping.stepcanary.com", "custom_domain": true }],
   "queues": {
     "producers": [{ "binding": "PINGS", "queue": "stepcanary-pings" }]
-  }
+  },
+  // Runaway-loop protection: at most 60 pings a minute per check are queued; while a check is
+  // over that, one marker a minute is queued instead.
+  "ratelimits": [
+    { "name": "PING_LIMITER", "namespace_id": "1001", "simple": { "limit": 60, "period": 60 } },
+    { "name": "MARKER_LIMITER", "namespace_id": "1002", "simple": { "limit": 1, "period": 60 } }
+  ]
   // Secret (wrangler secret put -c wrangler.ingest.jsonc): TOKEN_SECRET
 }

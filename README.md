@@ -3,10 +3,10 @@
 A dead man's switch for no-code automations (Zapier, Make, n8n, Pipedream). Users add one HTTP
 step that pings a unique URL; if the pings stop, StepCanary alerts them in plain English.
 
-Status: **Step 2 (MVP)** – checks, ping endpoints, interval + schedule + active-window modes,
-email alerts, dashboard, live first-ping listener, self-monitoring with false-alarm suppression.
-Volume baselines, payload-drift alerts, runaway-loop protection, Slack/Discord/webhook channels
-and billing arrive in Step 3.
+Status: **Step 3**. Built and tested: checks with interval, schedule, active-window and
+volume-baseline modes; payload-drift alerts; runaway-loop protection; email, Slack, Discord and
+webhook alerts; client folders with a weekly summary; Stripe billing; self-monitoring with
+false-alarm suppression. Production currently runs Step 2; see `docs/STEP3.md` to roll out Step 3.
 
 ## How it fits together
 
@@ -25,6 +25,7 @@ automation ──HTTP──▶ ingest Worker ──▶ Queue ──▶ app Worke
 | `migrations/` | Postgres schema. |
 | `test/` | Unit tests plus database-backed tests that run the real SQL on PGlite (in-process Postgres). |
 | `docs/DEPLOY.md` | First deployment, step by step. |
+| `docs/STEP3.md` | Rolling out Step 3, Stripe setup, and how the new features behave. |
 | `docs/RUNBOOK.md` | What to do when something breaks. |
 
 ## Reliability rules, and where they live
@@ -63,7 +64,7 @@ npm run dev         # terminal 2: both Workers on http://localhost:8787
 ## Tests
 
 ```powershell
-npm test            # 115 tests, about 3 seconds
+npm test            # about 180 tests, a few seconds
 npm run typecheck
 npm run build:check # bundles both Workers without deploying
 ```

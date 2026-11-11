@@ -47,6 +47,10 @@ export function describeExpectation(cfg: CheckConfig): string {
   if (cfg.mode === 'schedule') {
     return `a ping on the schedule "${cfg.cron}" (${cfg.timezone}), within ${formatDuration(cfg.graceSeconds)} of each scheduled time`;
   }
+  if (cfg.mode === 'volume') {
+    const window = cfg.activeWindow ? ` (counting only ${describeWindow(cfg.activeWindow, cfg.timezone)})` : '';
+    return `ping volume to stay above ${cfg.volumeThresholdPct ?? 50}% of what is normal for the day${window}`;
+  }
   const base = `at least one ping every ${formatDuration(cfg.intervalSeconds ?? 0)}`;
   const window = cfg.activeWindow ? `, counted only during ${describeWindow(cfg.activeWindow, cfg.timezone)}` : '';
   return `${base}${window}, with ${formatDuration(cfg.graceSeconds)} of grace`;
@@ -56,15 +60,31 @@ export function formatInstant(ms: number, timezone: string): string {
   return DateTime.fromMillis(ms, { zone: timezone }).toFormat("ccc d LLL yyyy, HH:mm ZZZZ");
 }
 
+export type AlertEvent = 'down' | 'recovered' | 'drift' | 'runaway';
+
+export interface VolumeFacts {
+  expected: number;
+  actual: number;
+  /** "on a Tuesday" / "between 14:00 and 15:00 on a Tuesday" */
+  when: string;
+  /** "Tue 10 Nov" */
+  label: string;
+  pct: number;
+}
+
 export interface AlertContext {
   name: string;
   cfg: CheckConfig;
   lastPingAt: number | null;
   /** When the event happened (down: when we noticed / failure reported; recovered: the ping). */
   at: number;
-  reason?: 'missed' | 'reported_failure';
+  reason?: 'missed' | 'reported_failure' | 'low_volume';
   /** For "recovered": when the incident opened. */
   openedAt?: number;
+  /** For low-volume down / recovered. */
+  volume?: VolumeFacts;
+  /** For "drift": one plain-English line per change (key names only). */
+  changes?: string[];
   link: string;
 }
 
@@ -74,7 +94,9 @@ export interface AlertMessage {
   link: string;
 }
 
-export function composeAlert(event: 'down' | 'recovered', ctx: AlertContext): AlertMessage {
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+export function composeAlert(event: AlertEvent, ctx: AlertContext): AlertMessage {
   const tz = ctx.cfg.timezone;
   const expected = describeExpectation(ctx.cfg);
   const lastPing =
@@ -82,15 +104,61 @@ export function composeAlert(event: 'down' | 'recovered', ctx: AlertContext): Al
       ? 'We have not received a successful ping yet.'
       : `The last successful ping arrived ${formatInstant(ctx.lastPingAt, tz)} (${formatDuration((ctx.at - ctx.lastPingAt) / 1000)} earlier).`;
 
+  if (event === 'runaway') {
+    return {
+      subject: `Runaway loop detected: "${ctx.name}"`,
+      body: [
+        `Your automation "${ctx.name}" is pinging us more than 60 times a minute, which usually means it is stuck in a loop.`,
+        '',
+        `What we expected: ${expected}.`,
+        `What happened: since ${formatInstant(ctx.at, tz)} it has been sending pings far faster than that. We still count it as alive, but we are ignoring the extra pings.`,
+        '',
+        'Common causes: a workflow that triggers itself, a loop step with no exit condition, or a retry storm after an error. Check it soon: a looping automation can burn through your task quota quickly.',
+      ].join('\n'),
+      link: ctx.link,
+    };
+  }
+
+  if (event === 'drift') {
+    return {
+      subject: `Payload changed: "${ctx.name}"`,
+      body: [
+        `The data your automation "${ctx.name}" sends has changed shape.`,
+        '',
+        'What changed:',
+        ...(ctx.changes ?? []).map((line) => `• ${line}`),
+        '',
+        'The automation is still running, but a field that went blank or missing often means a mapping broke upstream.',
+        'If this change is expected, open the check and choose "Accept new shape" or "Mark as optional" so you are not alerted about it again.',
+      ].join('\n'),
+      link: `${ctx.link}#drift`,
+    };
+  }
+
   if (event === 'recovered') {
     const downFor = ctx.openedAt != null ? ` It was down for about ${formatDuration((ctx.at - ctx.openedAt) / 1000)}.` : '';
+    const what = ctx.volume
+      ? `${plural(ctx.volume.actual, 'ping')} arrived ${ctx.volume.label}, which is back in the normal range (usually about ${ctx.volume.expected} ${ctx.volume.when}).${downFor}`
+      : `a ping arrived ${formatInstant(ctx.at, tz)}.${downFor}`;
     return {
-      subject: `Recovered: "${ctx.name}" is checking in again`,
+      subject: ctx.volume ? `Recovered: "${ctx.name}" volume is back to normal` : `Recovered: "${ctx.name}" is checking in again`,
+      body: [`Good news: your automation "${ctx.name}" is working again.`, '', `What happened: ${what}`, `What we expect: ${expected}.`].join('\n'),
+      link: ctx.link,
+    };
+  }
+
+  if (ctx.reason === 'low_volume' && ctx.volume) {
+    const v = ctx.volume;
+    return {
+      subject: `Down: "${ctx.name}" volume has dropped`,
       body: [
-        `Good news: your automation "${ctx.name}" is working again.`,
+        `Your automation "${ctx.name}" is running far less often than normal.`,
         '',
-        `What happened: a ping arrived ${formatInstant(ctx.at, tz)}.${downFor}`,
-        `What we expect: ${expected}.`,
+        `What we expected: usually about ${plural(v.expected, 'ping')} ${v.when}. We alert below ${v.pct}% of that.`,
+        `What happened: only ${plural(v.actual, 'ping')} arrived ${v.label}.`,
+        '',
+        'Common causes: the trigger has stopped firing for some records, a filter or path changed, a connected account needs reconnecting, or the source simply had less activity than usual.',
+        'We will let you know when volume is back to normal.',
       ].join('\n'),
       link: ctx.link,
     };

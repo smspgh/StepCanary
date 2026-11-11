@@ -8,6 +8,7 @@
 //  - ids are text; counts are cast to int
 
 import type { CheckConfig, CheckState, CheckStatus } from '../core/evaluate';
+import type { Baseline } from '../core/volume';
 import type { Shape } from '../shared/fingerprint';
 
 export type Row = Record<string, any>;
@@ -45,6 +46,17 @@ export interface Check {
   lastShape: Shape | null;
   payloadWarning: string | null;
   createdAt: number | null;
+  folderId: string | null;
+  firstPingAt: number | null;
+  pausedReason: string | null;
+  baselineStatus: 'learning' | 'ready' | 'active' | null;
+  baseline: Baseline | null;
+  volumeEvaluatedUntil: number | null;
+  driftEnabled: boolean;
+  acceptedShape: Shape | null;
+  optionalPaths: string[];
+  pendingShape: Shape | null;
+  runawayAt: number | null;
 }
 
 export function toCheck(r: Row): Check {
@@ -60,6 +72,7 @@ export function toCheck(r: Row): Check {
       timezone: r.timezone,
       graceSeconds: r.grace_seconds,
       activeWindow: asJson(r.active_window),
+      volumeThresholdPct: r.volume_threshold_pct ?? null,
     },
     state: {
       status: r.status as CheckStatus,
@@ -73,6 +86,17 @@ export function toCheck(r: Row): Check {
     lastShape: asJson<Shape>(r.last_shape),
     payloadWarning: r.payload_warning,
     createdAt: ms(r.created_at),
+    folderId: r.folder_id ?? null,
+    firstPingAt: ms(r.first_ping_at),
+    pausedReason: r.paused_reason ?? null,
+    baselineStatus: r.baseline_status ?? null,
+    baseline: asJson<Baseline>(r.baseline),
+    volumeEvaluatedUntil: ms(r.volume_evaluated_until),
+    driftEnabled: r.drift_enabled === true,
+    acceptedShape: asJson<Shape>(r.accepted_shape),
+    optionalPaths: asJson<string[]>(r.optional_paths) ?? [],
+    pendingShape: asJson<Shape>(r.pending_shape),
+    runawayAt: ms(r.runaway_at),
   };
 }
 
@@ -131,4 +155,21 @@ export async function gapsSince(db: Db, since: number): Promise<GapRow[]> {
     [iso(since)],
   );
   return rows.map((r) => ({ startedAt: ms(r.started_at)!, endedAt: ms(r.ended_at)!, reason: r.reason }));
+}
+
+export async function gapsOverlapping(db: Db, start: number, end: number): Promise<{ start: number; end: number }[]> {
+  const rows = await db.query(
+    'SELECT started_at, ended_at FROM monitoring_gaps WHERE started_at < $2::timestamptz AND ended_at > $1::timestamptz',
+    [iso(start), iso(end)],
+  );
+  return rows.map((r) => ({ start: ms(r.started_at)!, end: ms(r.ended_at)! }));
+}
+
+/** Successful-ping counts per UTC hour for one check. */
+export async function hourlyCounts(db: Db, checkId: string, start: number, end: number): Promise<{ hour: number; ok: number }[]> {
+  const rows = await db.query(
+    'SELECT hour, ok FROM ping_hourly WHERE check_id = $1 AND hour >= $2::timestamptz AND hour < $3::timestamptz',
+    [checkId, iso(Math.floor(start / 3_600_000) * 3_600_000), iso(end)],
+  );
+  return rows.map((r) => ({ hour: ms(r.hour)!, ok: r.ok }));
 }

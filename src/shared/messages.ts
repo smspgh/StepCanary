@@ -5,6 +5,8 @@ export type PingKind = 'ok' | 'fail' | 'start';
 export const FLAG_MALFORMED = 1; // body claimed to be JSON but could not be parsed
 export const FLAG_TOO_LARGE = 2; // body over the size cap; counted but not fingerprinted
 export const FLAG_TRUNCATED = 4; // shape hit the depth/key caps
+/** Sent at most about once a minute per check while the edge is rate-limiting it (runaway loop). */
+export const FLAG_THROTTLED = 8;
 
 /** What the ingest Worker puts on the queue. Contains key names and types only, never values. */
 export interface PingMessage {

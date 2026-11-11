@@ -5,7 +5,7 @@ import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
 import { csrf } from 'hono/csrf';
 import { HTTPException } from 'hono/http-exception';
 import { secureHeaders } from 'hono/secure-headers';
-import { limitsFor } from '../core/plans';
+import { featuresNotInPlan, limitsFor } from '../core/plans';
 import { validateCheckForm, type FormData } from '../core/validate';
 import { shapeKeys } from '../shared/fingerprint';
 import {
@@ -18,28 +18,50 @@ import {
   SESSION_TTL_MS,
   type Account,
 } from './auth';
+import { billingConfigured, createCheckoutUrl, createPortalUrl, handleStripeEvent, verifyStripeSignature, type BillingEnv } from './billing';
+import { addChannel, channelIdsForCheck, deleteChannel, getChannelRaw, listChannels, validateChannelUrl, type ChannelKind } from './channels';
 import {
+  acceptDrift,
+  accountSignature,
+  countActiveChecks,
   countChecks,
   createCheck,
   deleteCheck,
+  enableBaseline,
   getCheck,
   listChecks,
+  markDriftOptional,
   pauseCheck,
+  proposeBaseline,
   recentIncidents,
   recentPings,
   resumeCheck,
   sparklines,
   updateCheck,
 } from './checks';
-import { gapsSince, latestGapEnd, type Db } from './db';
-import { sendEmail, simpleHtml, type EmailEnv } from './email';
-import { CheckFormPage, CheckPage, ChecksPage, gapAffects, LandingPage, LoginPage, MessagePage, VerifyPage } from './views';
+import { gapsSince, latestGapEnd, type Check, type Db } from './db';
+import { sendEmail, simpleHtml } from './email';
+import { learnBaseline } from './evaluator';
+import { cleanFolderName, createFolder, deleteFolder, folderBelongsTo, listFolders, renameFolder } from './folders';
+import { makeSender, type SenderEnv } from './sender';
+import {
+  BillingPage,
+  ChannelsPage,
+  CheckFormPage,
+  CheckPage,
+  ChecksPage,
+  FoldersPage,
+  gapAffects,
+  LandingPage,
+  LoginPage,
+  MessagePage,
+  VerifyPage,
+} from './views';
 
-export interface AppEnv extends EmailEnv {
+export interface AppEnv extends SenderEnv, BillingEnv {
   HYPERDRIVE: { connectionString: string };
   INGEST: { fetch: (req: Request) => Promise<Response> };
   TOKEN_SECRET: string;
-  APP_URL: string;
   PING_URL: string;
   DEFAULT_PLAN?: string;
   EVALUATOR_HEARTBEAT_URL?: string;
@@ -52,6 +74,15 @@ type Ctx = Context<HonoEnv>;
 
 const trimSlash = (s: string) => s.replace(/\/$/, '');
 
+const NOTICES: Record<string, string> = {
+  baseline_on: 'Volume alerts are on.',
+  baseline_new: 'New baseline learned. Review it below, then switch alerts back on.',
+  baseline_short: 'There is not enough clean history yet to learn a baseline. Try again in a few days.',
+  drift_accepted: 'Done. The new payload shape is now the normal one.',
+  drift_optional: 'Done. Those fields are now optional and will not trigger alerts.',
+  resume_limit: 'This check cannot be resumed on your current plan.',
+};
+
 export function createApp(dbFactory: DbFactory) {
   const app = new Hono<HonoEnv>();
 
@@ -60,6 +91,24 @@ export function createApp(dbFactory: DbFactory) {
   // Pings sent to the app hostname are handed straight to the ingest Worker (no database, no session).
   // Production customers use the dedicated ping hostname; this keeps local dev to a single port.
   app.all('/p/*', (c) => c.env.INGEST.fetch(c.req.raw));
+
+  // Stripe calls this server-to-server: no cookie, no CSRF. Authenticity comes from the signature.
+  app.post('/webhooks/stripe', async (c) => {
+    const payload = await c.req.text();
+    const ok = await verifyStripeSignature(payload, c.req.header('stripe-signature') ?? null, c.env.STRIPE_WEBHOOK_SECRET ?? '', Date.now());
+    if (!ok) return c.json({ ok: false, error: 'bad_signature' }, 400);
+    const { db, close } = dbFactory(c.env);
+    try {
+      const note = await handleStripeEvent(db, c.env, JSON.parse(payload), Date.now());
+      return c.json({ ok: true, note });
+    } catch (err) {
+      // A 500 makes Stripe retry later, which is what we want for a transient failure.
+      console.error('stripe_webhook_failed', String(err));
+      return c.json({ ok: false }, 500);
+    } finally {
+      c.executionCtx.waitUntil(close().catch(() => {}));
+    }
+  });
 
   app.use('*', secureHeaders());
   app.use('*', csrf());
@@ -137,35 +186,68 @@ export function createApp(dbFactory: DbFactory) {
 
   // --- signed-in --------------------------------------------------------------------------------
 
-  app.use('/checks/*', async (c, next) => (c.get('account') ? next() : c.redirect('/login')));
-  app.use('/checks', async (c, next) => (c.get('account') ? next() : c.redirect('/login')));
+  for (const prefix of ['/checks', '/channels', '/folders', '/billing', '/sig']) {
+    app.use(prefix, async (c, next) => (c.get('account') ? next() : c.redirect('/login')));
+    app.use(`${prefix}/*`, async (c, next) => (c.get('account') ? next() : c.redirect('/login')));
+  }
+
+  // Open dashboard pages poll this and reload when anything they show has changed.
+  app.get('/sig', async (c) => {
+    c.header('cache-control', 'no-store');
+    return c.json({ sig: await accountSignature(c.get('db'), c.get('account')!.id) });
+  });
 
   app.get('/checks', async (c) => {
     const db = c.get('db');
     const { account, limits } = page(c);
     const now = Date.now();
-    const [checks, sparks, gaps, gapEnd] = await Promise.all([
-      listChecks(db, account.id),
-      sparklines(db, account.id, now),
-      gapsSince(db, now - 86_400_000),
-      latestGapEnd(db),
-    ]);
-    return c.html(<ChecksPage account={account} checks={checks} sparks={sparks} gaps={gaps} latestGapEnd={gapEnd} limits={limits} />);
+    const checks = await listChecks(db, account.id);
+    return c.html(
+      <ChecksPage
+        account={account}
+        checks={checks}
+        sparks={await sparklines(db, account.id, now)}
+        gaps={await gapsSince(db, now - 86_400_000)}
+        latestGapEnd={await latestGapEnd(db)}
+        limits={limits}
+        folders={limits.folders ? await listFolders(db, account.id) : []}
+        sig={await accountSignature(db, account.id)}
+        now={now}
+      />,
+    );
   });
 
-  app.get('/checks/new', (c) => c.html(<CheckFormPage {...page(c)} />));
+  const formPage = async (c: Ctx, extra: { check?: Check; errors?: string[]; status?: 200 | 400 } = {}) => {
+    const db = c.get('db');
+    const { account, limits } = page(c);
+    return c.html(
+      <CheckFormPage
+        account={account}
+        limits={limits}
+        check={extra.check}
+        channels={await listChannels(db, account.id)}
+        selectedChannels={extra.check ? await channelIdsForCheck(db, extra.check.id) : undefined}
+        folders={limits.folders ? await listFolders(db, account.id) : []}
+        errors={extra.errors}
+      />,
+      extra.status ?? 200,
+    );
+  };
+
+  app.get('/checks/new', (c) => formPage(c));
 
   app.post('/checks', async (c) => {
     const db = c.get('db');
     const { account, limits } = page(c);
     const form = (await c.req.parseBody({ all: true })) as FormData;
     const errors: string[] = [];
-    if ((await countChecks(db, account.id)) >= limits.maxChecks) {
+    if ((await countActiveChecks(db, account.id)) >= limits.maxChecks || (await countChecks(db, account.id)) >= limits.maxChecks * 2) {
       errors.push(`Your ${limits.label} plan includes ${limits.maxChecks} checks. Delete one or upgrade to add more.`);
     }
     const result = validateCheckForm(form, limits);
     if (!result.ok) errors.push(...result.errors);
-    if (errors.length || !result.ok) return c.html(<CheckFormPage account={account} limits={limits} errors={errors} />, 400);
+    else if (result.value.folderId && !(await folderBelongsTo(db, account.id, result.value.folderId))) result.value.folderId = null;
+    if (errors.length || !result.ok) return formPage(c, { errors, status: 400 });
     const id = await createCheck(db, account.id, result.value, c.env.TOKEN_SECRET);
     return c.redirect(`/checks/${id}?created=1`);
   });
@@ -174,16 +256,19 @@ export function createApp(dbFactory: DbFactory) {
     const check = await loadCheck(c);
     if (!check) return notFound(c);
     const db = c.get('db');
-    const [pings, incidents, gapEnd] = await Promise.all([recentPings(db, check.id), recentIncidents(db, check.id), latestGapEnd(db)]);
+    const account = c.get('account')!;
     return c.html(
       <CheckPage
-        account={c.get('account')!}
+        account={account}
         check={check}
         pingUrl={`${trimSlash(c.env.PING_URL)}/p/${check.token}`}
-        pings={pings}
-        incidents={incidents}
-        gapAffected={gapAffects(check, gapEnd)}
+        pings={await recentPings(db, check.id)}
+        incidents={await recentIncidents(db, check.id)}
+        gapAffected={gapAffects(check, await latestGapEnd(db))}
         created={c.req.query('created') === '1'}
+        notice={NOTICES[c.req.query('notice') ?? '']}
+        sig={await accountSignature(db, account.id)}
+        now={Date.now()}
       />,
     );
   });
@@ -201,17 +286,19 @@ export function createApp(dbFactory: DbFactory) {
   app.get('/checks/:id/edit', async (c) => {
     const check = await loadCheck(c);
     if (!check) return notFound(c);
-    return c.html(<CheckFormPage {...page(c)} check={check} />);
+    return formPage(c, { check });
   });
 
   app.post('/checks/:id', async (c) => {
     const check = await loadCheck(c);
     if (!check) return notFound(c);
+    const db = c.get('db');
     const { account, limits } = page(c);
     const form = (await c.req.parseBody({ all: true })) as FormData;
     const result = validateCheckForm(form, limits);
-    if (!result.ok) return c.html(<CheckFormPage account={account} limits={limits} check={check} errors={result.errors} />, 400);
-    await updateCheck(c.get('db'), check, result.value, Date.now());
+    if (!result.ok) return formPage(c, { check, errors: result.errors, status: 400 });
+    if (result.value.folderId && !(await folderBelongsTo(db, account.id, result.value.folderId))) result.value.folderId = null;
+    await updateCheck(db, check, result.value, Date.now());
     return c.redirect(`/checks/${check.id}`);
   });
 
@@ -225,7 +312,13 @@ export function createApp(dbFactory: DbFactory) {
   app.post('/checks/:id/resume', async (c) => {
     const check = await loadCheck(c);
     if (!check) return notFound(c);
-    await resumeCheck(c.get('db'), check, Date.now());
+    const db = c.get('db');
+    const { account, limits } = page(c);
+    const blocked =
+      featuresNotInPlan({ mode: check.cfg.mode, activeWindow: check.cfg.activeWindow, driftEnabled: check.driftEnabled }, limits).length > 0 ||
+      (check.state.status === 'paused' && (await countActiveChecks(db, account.id)) >= limits.maxChecks);
+    if (blocked) return c.redirect(`/checks/${check.id}?notice=resume_limit`);
+    await resumeCheck(db, check, Date.now());
     return c.redirect(`/checks/${check.id}`);
   });
 
@@ -234,6 +327,167 @@ export function createApp(dbFactory: DbFactory) {
     if (!check) return notFound(c);
     await deleteCheck(c.get('db'), check);
     return c.redirect('/checks');
+  });
+
+  app.post('/checks/:id/baseline/enable', async (c) => {
+    const check = await loadCheck(c);
+    if (!check) return notFound(c);
+    const ok = await enableBaseline(c.get('db'), check, Date.now());
+    return c.redirect(`/checks/${check.id}${ok ? '?notice=baseline_on' : ''}`);
+  });
+
+  app.post('/checks/:id/baseline/relearn', async (c) => {
+    const check = await loadCheck(c);
+    if (!check || check.cfg.mode !== 'volume') return notFound(c);
+    const db = c.get('db');
+    const now = Date.now();
+    // Only the most recent 14 days: the point of relearning is to forget the old normal.
+    const baseline = await learnBaseline(db, check, now, { recentOnly: true });
+    if (!baseline) return c.redirect(`/checks/${check.id}?notice=baseline_short`);
+    await proposeBaseline(db, check, baseline, now);
+    return c.redirect(`/checks/${check.id}?notice=baseline_new`);
+  });
+
+  app.post('/checks/:id/drift/accept', async (c) => {
+    const check = await loadCheck(c);
+    if (!check) return notFound(c);
+    const ok = await acceptDrift(c.get('db'), check, Date.now());
+    return c.redirect(`/checks/${check.id}${ok ? '?notice=drift_accepted' : ''}`);
+  });
+
+  app.post('/checks/:id/drift/optional', async (c) => {
+    const check = await loadCheck(c);
+    if (!check) return notFound(c);
+    const ok = await markDriftOptional(c.get('db'), check, Date.now());
+    return c.redirect(`/checks/${check.id}${ok ? '?notice=drift_optional' : ''}`);
+  });
+
+  // --- alert channels ---------------------------------------------------------------------------
+
+  const channelsPage = async (c: Ctx, extra: { errors?: string[]; notice?: string; status?: 200 | 400 } = {}) => {
+    const { account, limits } = page(c);
+    return c.html(
+      <ChannelsPage account={account} limits={limits} channels={await listChannels(c.get('db'), account.id)} errors={extra.errors} notice={extra.notice} />,
+      extra.status ?? 200,
+    );
+  };
+
+  app.get('/channels', (c) => channelsPage(c, { notice: c.req.query('added') ? 'Channel added to all your checks.' : undefined }));
+
+  app.post('/channels', async (c) => {
+    const { account, limits } = page(c);
+    const form = await c.req.parseBody();
+    const kind = String(form.kind ?? '') as ChannelKind;
+    const errors: string[] = [];
+    if (!limits.extraChannels) errors.push('Slack, Discord and webhook alerts are part of the Pro plan.');
+    if (!['slack', 'discord', 'webhook'].includes(kind)) errors.push('Pick a channel type.');
+    else {
+      const problem = validateChannelUrl(kind, String(form.url ?? ''));
+      if (problem) errors.push(problem);
+    }
+    if (!errors.length && !c.env.CHANNEL_KEY) errors.push('Channels cannot be added right now. Please contact support.');
+    if (errors.length) return channelsPage(c, { errors, status: 400 });
+    await addChannel(c.get('db'), account.id, kind, String(form.name ?? ''), String(form.url ?? ''), c.env.CHANNEL_KEY!);
+    return c.redirect('/channels?added=1');
+  });
+
+  app.post('/channels/:id/delete', async (c) => {
+    await deleteChannel(c.get('db'), c.get('account')!.id, c.req.param('id'));
+    return c.redirect('/channels');
+  });
+
+  app.post('/channels/:id/test', async (c) => {
+    const account = c.get('account')!;
+    const channel = await getChannelRaw(c.get('db'), account.id, c.req.param('id'));
+    if (!channel) return c.redirect('/channels');
+    try {
+      await makeSender(c.env)(channel, {
+        event: 'down',
+        subject: 'Test alert from StepCanary',
+        body: 'This is a test. If you can read it, alerts to this channel are working.',
+        link: `${trimSlash(c.env.APP_URL)}/channels`,
+        checkId: 'test',
+        checkName: 'Test alert',
+        at: Date.now(),
+        idempotencyKey: crypto.randomUUID(),
+      });
+      return channelsPage(c, { notice: 'Test alert sent. Check that it arrived.' });
+    } catch (err) {
+      console.error('channel_test_failed', String(err));
+      return channelsPage(c, { errors: ['The test alert could not be delivered. Check the webhook URL is still valid.'], status: 400 });
+    }
+  });
+
+  // --- client folders (Agency) ------------------------------------------------------------------
+
+  const foldersPage = async (c: Ctx, errors?: string[]) => {
+    const { account, limits } = page(c);
+    if (!limits.folders) {
+      return c.html(<MessagePage account={account} title="Client folders" message="Client folders and weekly client summaries are part of the Agency plan." />);
+    }
+    return c.html(<FoldersPage account={account} folders={await listFolders(c.get('db'), account.id)} errors={errors} />, errors ? 400 : 200);
+  };
+
+  app.get('/folders', (c) => foldersPage(c));
+
+  app.post('/folders', async (c) => {
+    const { account, limits } = page(c);
+    if (!limits.folders) return foldersPage(c);
+    const name = cleanFolderName(String((await c.req.parseBody()).name ?? ''));
+    if (!name) return foldersPage(c, ['Give the folder a name of up to 80 characters.']);
+    await createFolder(c.get('db'), account.id, name);
+    return c.redirect('/folders');
+  });
+
+  app.post('/folders/:id', async (c) => {
+    const name = cleanFolderName(String((await c.req.parseBody()).name ?? ''));
+    if (!name) return foldersPage(c, ['Give the folder a name of up to 80 characters.']);
+    await renameFolder(c.get('db'), c.get('account')!.id, c.req.param('id'), name);
+    return c.redirect('/folders');
+  });
+
+  app.post('/folders/:id/delete', async (c) => {
+    await deleteFolder(c.get('db'), c.get('account')!.id, c.req.param('id'));
+    return c.redirect('/folders');
+  });
+
+  // --- billing ----------------------------------------------------------------------------------
+
+  const billingPage = async (c: Ctx, extra: { errors?: string[]; notice?: string } = {}) => {
+    const { account, limits } = page(c);
+    return c.html(
+      <BillingPage
+        account={account}
+        limits={limits}
+        activeChecks={await countActiveChecks(c.get('db'), account.id)}
+        configured={billingConfigured(c.env)}
+        notice={extra.notice}
+        errors={extra.errors}
+      />,
+      extra.errors ? 400 : 200,
+    );
+  };
+
+  app.get('/billing', (c) =>
+    billingPage(c, {
+      notice: c.req.query('checkout') === 'success' ? 'Thank you! Your plan will update within a few seconds; refresh this page if it has not yet.' : undefined,
+    }),
+  );
+
+  app.post('/billing/checkout', async (c) => {
+    const account = c.get('account')!;
+    const plan = String((await c.req.parseBody()).plan ?? '');
+    if (plan !== 'pro' && plan !== 'agency') return billingPage(c, { errors: ['Pick a plan.'] });
+    if (!billingConfigured(c.env)) return billingPage(c, { errors: ['Paid plans are not available yet.'] });
+    // Existing subscribers change plan in the portal, so they can never end up with two subscriptions.
+    if (account.stripeCustomerId && account.plan !== 'free') return c.redirect(await createPortalUrl(c.env, account.stripeCustomerId), 303);
+    return c.redirect(await createCheckoutUrl(c.env, account, plan), 303);
+  });
+
+  app.post('/billing/portal', async (c) => {
+    const account = c.get('account')!;
+    if (!account.stripeCustomerId || !billingConfigured(c.env)) return c.redirect('/billing');
+    return c.redirect(await createPortalUrl(c.env, account.stripeCustomerId), 303);
   });
 
   return app;

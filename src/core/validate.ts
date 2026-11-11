@@ -2,7 +2,7 @@
 
 import { Cron } from 'croner';
 import { DateTime } from 'luxon';
-import type { CheckConfig } from './evaluate';
+import type { CheckConfig, CheckMode } from './evaluate';
 import type { PlanLimits } from './plans';
 import type { ActiveWindow } from './window';
 
@@ -11,6 +11,11 @@ export type FormData = Record<string, string | string[] | undefined>;
 export interface ValidatedCheck {
   name: string;
   cfg: CheckConfig;
+  driftEnabled?: boolean;
+  /** Client folder id as submitted; ownership is checked by the caller. */
+  folderId?: string | null;
+  /** null = every channel the account has; undefined = leave unchanged; array = exactly these. */
+  channelIds?: string[] | null;
 }
 
 const UNIT_SECONDS: Record<string, number> = { minutes: 60, hours: 3600, days: 86400 };
@@ -61,6 +66,18 @@ export function validateCron(expr: string, timezone: string): string | null {
   }
 }
 
+function activeWindowFrom(form: FormData, limits: PlanLimits, errors: string[]): ActiveWindow | null {
+  if (!one(form.window_enabled)) return null;
+  if (!limits.activeWindows) errors.push('Active windows are part of the Pro plan.');
+  const days = [...new Set(many(form.window_days).map(Number))].filter((d) => Number.isInteger(d) && d >= 1 && d <= 7).sort();
+  const start = clock(one(form.window_start));
+  const end = clock(one(form.window_end));
+  if (days.length === 0) errors.push('Active window: pick at least one day.');
+  if (start == null || end == null) errors.push('Active window: enter times as HH:MM, e.g. 09:00 and 18:00.');
+  else if (end <= start) errors.push('Active window: the end time must be after the start time (overnight windows are not supported yet).');
+  return days.length && start != null && end != null && end > start ? { days, start, end } : null;
+}
+
 export function validateCheckForm(form: FormData, limits: PlanLimits): { ok: true; value: ValidatedCheck } | { ok: false; errors: string[] } {
   const errors: string[] = [];
 
@@ -71,32 +88,50 @@ export function validateCheckForm(form: FormData, limits: PlanLimits): { ok: tru
   const timezone = one(form.timezone) || 'UTC';
   if (!isValidTimezone(timezone)) errors.push('Timezone: pick a timezone like "Europe/London".');
 
-  const mode = one(form.mode) === 'schedule' ? 'schedule' : 'interval';
-  const graceSeconds = duration(form, 'grace', 'Grace period', errors);
+  const rawMode = one(form.mode);
+  const mode: CheckMode = rawMode === 'schedule' || rawMode === 'volume' ? rawMode : 'interval';
 
   let intervalSeconds: number | null = null;
   let cron: string | null = null;
+  let graceSeconds = 0;
   let activeWindow: ActiveWindow | null = null;
+  let volumeThresholdPct: number | null = null;
 
   if (mode === 'schedule') {
     if (!limits.scheduleMode) errors.push('Schedule mode is part of the Pro plan.');
+    graceSeconds = duration(form, 'grace', 'Grace period', errors);
     cron = one(form.cron).replace(/\s+/g, ' ');
     const err = isValidTimezone(timezone) ? validateCron(cron, timezone) : null;
     if (err) errors.push(err);
+  } else if (mode === 'volume') {
+    if (!limits.volumeBaseline) errors.push('Volume baselines are part of the Pro plan.');
+    const pct = Number(one(form.volume_pct) || '50');
+    if (!Number.isInteger(pct) || pct < 1 || pct > 99) errors.push('Volume threshold: enter a whole percentage between 1 and 99.');
+    else volumeThresholdPct = pct;
+    activeWindow = activeWindowFrom(form, limits, errors);
   } else {
+    graceSeconds = duration(form, 'grace', 'Grace period', errors);
     intervalSeconds = duration(form, 'interval', 'Interval', errors);
-    if (one(form.window_enabled)) {
-      if (!limits.activeWindows) errors.push('Active windows are part of the Pro plan.');
-      const days = [...new Set(many(form.window_days).map(Number))].filter((d) => Number.isInteger(d) && d >= 1 && d <= 7).sort();
-      const start = clock(one(form.window_start));
-      const end = clock(one(form.window_end));
-      if (days.length === 0) errors.push('Active window: pick at least one day.');
-      if (start == null || end == null) errors.push('Active window: enter times as HH:MM, e.g. 09:00 and 18:00.');
-      else if (end <= start) errors.push('Active window: the end time must be after the start time (overnight windows are not supported yet).');
-      if (days.length && start != null && end != null && end > start) activeWindow = { days, start, end };
-    }
+    activeWindow = activeWindowFrom(form, limits, errors);
   }
 
+  const driftEnabled = one(form.drift_enabled) !== '';
+  if (driftEnabled && !limits.payloadDrift) errors.push('Payload drift alerts are part of the Pro plan.');
+
+  const folderId = limits.folders ? one(form.folder_id) || null : null;
+  // The form always lists channels, so "none ticked" would silence the check: refuse that.
+  const channelIds = one(form.channels_shown) ? many(form.channel_ids) : undefined;
+  if (channelIds && channelIds.length === 0) errors.push('Alerts: pick at least one place to send alerts.');
+
   if (errors.length) return { ok: false, errors };
-  return { ok: true, value: { name, cfg: { mode, intervalSeconds, cron, timezone, graceSeconds, activeWindow } } };
+  return {
+    ok: true,
+    value: {
+      name,
+      cfg: { mode, intervalSeconds, cron, timezone, graceSeconds, activeWindow, volumeThresholdPct },
+      driftEnabled,
+      folderId,
+      channelIds,
+    },
+  };
 }

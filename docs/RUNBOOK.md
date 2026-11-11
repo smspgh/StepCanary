@@ -101,9 +101,32 @@ and do not touch the database.
 3. To stop a wave in progress, pause evaluation without losing pings: remove the cron trigger in
    `wrangler.app.jsonc`, deploy, fix, restore, deploy. The pause is recorded as a gap automatically.
 
+### A customer paid but is still on Free
+
+1. Stripe → Developers → Webhooks → the endpoint → recent deliveries. A failing delivery shows the status we returned.
+   400 means the signing secret is wrong (`STRIPE_WEBHOOK_SECRET`); 500 means we could not reach Stripe or the database.
+2. Fix the cause, then press "Resend" on the event in Stripe. Handling an event twice is harmless.
+3. To unblock the customer immediately: `UPDATE accounts SET plan = 'pro' WHERE email = '...';`
+   The next subscription event from Stripe will overwrite this with the real state.
+
+### Alerts to Slack / Discord / a webhook are failing
+
+Run the "stuck or failed" SQL above. `last_error` shows the HTTP status the customer's webhook returned
+(404 or 410 usually means they deleted the webhook). We retry 10 times over about a day, then give up on
+that one alert. Email to the same check is unaffected. If every webhook delivery fails with a decryption
+error, `CHANNEL_KEY` is missing or was changed.
+
+### A customer says volume or drift alerts are wrong
+
+- Drift: on the check page, "Accept new shape" or "Mark as optional" ends it. Turning drift off and on again
+  relearns from the next payload.
+- Volume: "Relearn from the last 14 days" on the check page replaces the baseline; they review it before it
+  alerts again. The threshold percentage is on the Edit page.
+
 ## Things never to do
 
 - **Never change `TOKEN_SECRET`.** Every existing ping URL would stop working.
+- **Never change `CHANNEL_KEY`.** Every stored Slack/Discord/webhook URL would become unreadable.
 - Never purge the `stepcanary-pings` queue unless you accept losing those pings.
 - Never turn Hyperdrive caching on.
 - Never delete rows from `incidents` or `alert_deliveries` to "resend" something; they are what

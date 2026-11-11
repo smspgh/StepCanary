@@ -6,7 +6,7 @@ import type { PingKind } from '../shared/messages';
 import { addMonitored, type ActiveWindow } from './window';
 
 export type CheckStatus = 'new' | 'up' | 'late' | 'down' | 'paused';
-export type CheckMode = 'interval' | 'schedule';
+export type CheckMode = 'interval' | 'schedule' | 'volume';
 
 export interface CheckConfig {
   mode: CheckMode;
@@ -14,8 +14,10 @@ export interface CheckConfig {
   cron: string | null;
   timezone: string;
   graceSeconds: number;
-  /** Interval mode only. */
+  /** Interval and volume modes. */
   activeWindow: ActiveWindow | null;
+  /** Volume mode: alert when a period's count is below this percentage of normal. */
+  volumeThresholdPct?: number | null;
 }
 
 export interface CheckState {
@@ -90,6 +92,7 @@ export interface Decision {
  * alone: `new` (never alert before the first ping), `paused`, and `down` (only a ping recovers it).
  */
 export function evaluate(cfg: CheckConfig, state: CheckState, asOf: number, latestGapEnd: number | null): Decision | null {
+  if (cfg.mode === 'volume') return null; // judged by counts per period, see core/volume.ts
   if (state.status !== 'up' && state.status !== 'late') return null;
   const anchor = anchorOf(state, latestGapEnd);
   if (anchor == null) return null;
@@ -107,6 +110,7 @@ export function evaluate(cfg: CheckConfig, state: CheckState, asOf: number, late
 
 /** When the evaluator should next look at a check that is currently `up` or `late`. */
 export function scheduleNextEval(cfg: CheckConfig, state: CheckState, latestGapEnd: number | null): number | null {
+  if (cfg.mode === 'volume') return null;
   if (state.status !== 'up' && state.status !== 'late') return null;
   const anchor = anchorOf(state, latestGapEnd);
   if (anchor == null) return null;
@@ -123,7 +127,8 @@ export type Effect = { type: 'open'; at: number; reason: 'reported_failure' } | 
 
 export interface ApplyResult {
   state: CheckState;
-  nextEvalAt: number | null;
+  /** undefined = leave the stored value alone (volume checks keep their own timetable). */
+  nextEvalAt: number | null | undefined;
   effects: Effect[];
 }
 
@@ -134,11 +139,15 @@ export interface ApplyResult {
  *  - start: recorded only (v1 has no duration alerts).
  * Paused checks keep recording timestamps but never change status or raise alerts.
  * Out-of-order delivery is tolerated: an older `ok` cannot undo a newer `fail`, and vice versa.
+ *
+ * Volume checks differ: once past `new`, pings are only counted. A single ping does not prove
+ * volume is back to normal, so going down and recovering is left to the per-period evaluation.
  */
 export function applyEvents(cfg: CheckConfig, initial: CheckState, events: PingEvent[], latestGapEnd: number | null): ApplyResult {
   const s: CheckState = { ...initial };
   const effects: Effect[] = [];
   const max = (a: number | null, b: number) => (a == null || b > a ? b : a);
+  const volume = cfg.mode === 'volume';
 
   for (const ev of [...events].sort((a, b) => a.ts - b.ts)) {
     if (ev.kind === 'start') {
@@ -146,19 +155,19 @@ export function applyEvents(cfg: CheckConfig, initial: CheckState, events: PingE
     } else if (ev.kind === 'ok') {
       const newerThanFail = s.lastFailAt == null || ev.ts > s.lastFailAt;
       s.lastPingAt = max(s.lastPingAt, ev.ts);
-      if (s.status !== 'paused' && newerThanFail && s.status !== 'up') {
+      if (s.status !== 'paused' && newerThanFail && s.status !== 'up' && !(volume && s.status !== 'new')) {
         if (s.status === 'down') effects.push({ type: 'resolve', at: ev.ts });
         s.status = 'up';
       }
     } else {
       const newerThanPing = s.lastPingAt == null || ev.ts > s.lastPingAt;
       s.lastFailAt = max(s.lastFailAt, ev.ts);
-      if (s.status !== 'paused' && newerThanPing && s.status !== 'down') {
+      if (s.status !== 'paused' && newerThanPing && s.status !== 'down' && !volume) {
         s.status = 'down';
         effects.push({ type: 'open', at: ev.ts, reason: 'reported_failure' });
       }
     }
   }
 
-  return { state: s, nextEvalAt: scheduleNextEval(cfg, s, latestGapEnd), effects };
+  return { state: s, nextEvalAt: volume ? undefined : scheduleNextEval(cfg, s, latestGapEnd), effects };
 }

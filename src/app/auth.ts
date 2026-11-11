@@ -68,16 +68,17 @@ export interface Account {
   id: string;
   email: string;
   plan: string;
+  stripeCustomerId?: string | null;
 }
 
 export async function accountForSession(db: Db, sessionToken: string | undefined, now: number): Promise<Account | null> {
   if (!sessionToken) return null;
   const rows = await db.query(
-    `SELECT a.id, a.email, a.plan FROM sessions s JOIN accounts a ON a.id = s.account_id
+    `SELECT a.id, a.email, a.plan, a.stripe_customer_id FROM sessions s JOIN accounts a ON a.id = s.account_id
       WHERE s.token_hash = $1 AND s.expires_at > $2::timestamptz`,
     [await sha256Hex(sessionToken), iso(now)],
   );
-  return rows[0] ? { id: rows[0].id, email: rows[0].email, plan: rows[0].plan } : null;
+  return rows[0] ? { id: rows[0].id, email: rows[0].email, plan: rows[0].plan, stripeCustomerId: rows[0].stripe_customer_id ?? null } : null;
 }
 
 export async function destroySession(db: Db, sessionToken: string | undefined): Promise<void> {

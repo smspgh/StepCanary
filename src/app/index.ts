@@ -3,7 +3,9 @@
 import { canaryToken } from '../shared/token';
 import { sendPendingAlerts } from './alerts';
 import { consumeBatch } from './consumer';
+import { sendEmail } from './email';
 import { runEvaluator } from './evaluator';
+import { runWeeklySummaries } from './folders';
 import { connect } from './pg';
 import { runRetentionIfDue } from './retention';
 import { createApp, type AppEnv } from './routes';
@@ -58,6 +60,7 @@ export default {
       });
       await sendPendingAlerts(db, makeSender(env), Date.now()).catch((err) => console.error('alert_send_failed', String(err)));
       await runRetentionIfDue(db, now).catch((err) => console.error('retention_failed', String(err)));
+      await runWeeklySummaries(db, (email) => sendEmail(env, email), now).catch((err) => console.error('weekly_summary_failed', String(err)));
 
       if (summary.ran) {
         const starting = summary.health?.note === 'first_run' || summary.health?.note === 'warming_up';

@@ -1,8 +1,14 @@
 # Copy to .dev.vars for local development (`npm run dev`). Never commit .dev.vars.
 # These override the production values in wrangler.app.jsonc.
 TOKEN_SECRET=dev-only-secret-change-me
+CHANNEL_KEY=dev-only-channel-key-change-me
 APP_URL=http://localhost:8787
 PING_URL=http://localhost:8787
 EMAIL_PROVIDER=console
-# Local accounts get Pro so schedules and active windows can be tried without billing.
-DEFAULT_PLAN=pro
+# Local accounts get Agency so every feature can be tried without billing.
+DEFAULT_PLAN=agency
+# Optional, to try billing locally with Stripe test mode:
+# STRIPE_SECRET_KEY=sk_test_...
+# STRIPE_WEBHOOK_SECRET=whsec_...
+# STRIPE_PRICE_PRO=price_...
+# STRIPE_PRICE_AGENCY=price_...
