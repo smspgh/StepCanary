@@ -114,9 +114,16 @@ npm run deploy:ingest     # only when src/ingest or src/shared changed
 New migration files: run `npm run migrate` **before** deploying code that needs them. Roll back a
 bad deploy with `npx wrangler rollback -c wrangler.app.jsonc` (or `wrangler.ingest.jsonc`).
 
-## What has and has not been verified
+## Verification status
 
-Verified locally: the test suite, both Worker bundles, and a full run under `wrangler dev`
-(sign-in, check creation, pings through the queue, listener, evaluator, alert email logged).
-Not yet verified, because it needs your accounts: a real Cloudflare deploy, Hyperdrive against
-Neon, custom domains, and real email delivery. Treat step 7 as the acceptance test.
+Verified in production on 10 Nov 2026 (app.stepcanary.com / ping.stepcanary.com): deploy of both
+Workers, Hyperdrive to Neon, custom domains, magic-link sign-in, first-ping listener, one "Down"
+email, one "Recovered" email via Resend, and the Healthchecks.io heartbeat.
+
+## Gotchas met during the first deploy
+
+- **New Cloudflare account:** open Workers & Pages in the dashboard once before deploying. Until the
+  account has a workers.dev subdomain, cron schedules and queue consumers fail to attach (error 10063).
+- **:** the argument is the secret's name. Paste the value only at the
+  prompt. Secret names are visible, so a value typed as the name must be treated as leaked.
+- **New cron schedules** can take several minutes to start firing after the first deploy.
