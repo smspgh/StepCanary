@@ -15,13 +15,17 @@ the rest can follow in the first weeks.
 
 ## 2. It works on the real platforms
 
-The guides were written from documentation knowledge, not by clicking through each tool. Do
-this once per platform with a real account, and fix any wording that does not match the screen.
+The guides were checked field by field against each platform's official documentation on
+Nov 10, 2026, and the n8n templates were imported and run on a real n8n. Nobody has clicked
+through Zapier, Make, or Pipedream with a real account yet. Do that once per platform, and fix
+any wording that does not match the screen.
 
 - [ ] **(blocker)** Zapier: follow `docs/guides/zapier.md` exactly. The check flips to "Connected" on Test step.
 - [ ] **(blocker)** Make: follow `docs/guides/make.md`.
 - [ ] n8n: follow `docs/guides/n8n.md`.
 - [ ] Pipedream: follow `docs/guides/pipedream.md`.
+- [ ] Make template: build the HTTP step once in a free Make account (HTTP V4, settings from `docs/guides/make.md`), export the blueprint, and add it under `templates/make/`. A hand-written blueprint was not shipped because the V4 file format could not be confirmed from documentation.
+- [ ] Decide Pipedream's place on the landing page: Pipedream Workflows shuts down March 31, 2027 and accepts no new signups. The guide already says so.
 - [ ] Take the screenshots named in each guide's placeholders and add them.
 - [ ] On one platform, map a field, enable drift, then blank the field: the drift alert arrives and "Mark as optional" silences it.
 - [x] Guides are published in the app at `/guides` and linked from every check page (with that check's ping URL filled in). After editing a guide in `docs/guides/`, run `npm run build:guides` and deploy.

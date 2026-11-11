@@ -43,7 +43,7 @@ import { gapsSince, latestGapEnd, type Check, type Db } from './db';
 import { sendEmail, simpleHtml } from './email';
 import { learnBaseline } from './evaluator';
 import { cleanFolderName, createFolder, deleteFolder, folderBelongsTo, listFolders, renameFolder } from './folders';
-import { CONCEPT_SLUG, GUIDES, renderGuide } from './guides';
+import { CONCEPT_SLUG, GUIDES, renderGuide, renderTemplate } from './guides';
 import { makeSender, type SenderEnv } from './sender';
 import {
   BillingPage,
@@ -143,7 +143,7 @@ export function createApp(dbFactory: DbFactory) {
     const url = new URL(c.req.url);
     const appHost = new URL(c.env.APP_URL).host;
     const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(url.host);
-    const publicPage = url.pathname === '/' || url.pathname === '/guides' || url.pathname.startsWith('/guides/');
+    const publicPage = url.pathname === '/' || url.pathname === '/guides' || url.pathname.startsWith('/guides/') || url.pathname.startsWith('/templates/');
     if (url.host !== appHost && !local && !publicPage) return c.redirect(`${trimSlash(c.env.APP_URL)}${url.pathname}${url.search}`, 302);
     await next();
   });
@@ -159,7 +159,7 @@ export function createApp(dbFactory: DbFactory) {
     const checkId = c.req.query('check');
     // Signed in and arriving from one of your own checks: fill in that check's real ping URL.
     const token = account && checkId ? (await getCheck(c.get('db'), account.id, checkId))?.token : undefined;
-    const guide = renderGuide(c.req.param('slug'), c.env.PING_URL, token);
+    const guide = renderGuide(c.req.param('slug'), c.env.PING_URL, token, checkId);
     if (!guide) return c.html(<MessagePage account={account} title="Guide not found" message="We do not have a guide at that address." />, 404);
     return c.html(<GuidePage account={account} title={guide.title} html={guide.html} personalized={!!token} concept={c.req.param('slug') === CONCEPT_SLUG} />);
   });
@@ -184,6 +184,20 @@ export function createApp(dbFactory: DbFactory) {
     }
     // Same answer whether or not we sent anything, so this page can't be used to probe addresses.
     return c.html(<LoginPage sent />);
+  });
+
+  // Importable templates (n8n workflow files). Public; pre-filled when opened from your own check.
+  app.get('/templates/:platform/:file', async (c) => {
+    const account = c.get('account');
+    const checkId = c.req.query('check');
+    const token = account && checkId ? (await getCheck(c.get('db'), account.id, checkId))?.token : undefined;
+    const file = c.req.param('file');
+    const body = renderTemplate(`${c.req.param('platform')}/${file}`, c.env.PING_URL, token);
+    if (!body) return c.json({ error: 'not_found' }, 404);
+    c.header('content-type', 'application/json; charset=utf-8');
+    c.header('content-disposition', `attachment; filename="${file}"`);
+    c.header('cache-control', 'no-store');
+    return c.body(body);
   });
 
   // GET only shows a button; the token is redeemed on POST so email link-scanners can't use it up.

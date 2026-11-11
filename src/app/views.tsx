@@ -843,7 +843,7 @@ const PlatformSettings: FC<{ url: string; checkId: string }> = ({ url, checkId }
           <dt>Add step</dt><dd>Webhooks by Zapier (last step of the Zap)</dd>
           <dt>Event</dt><dd>POST</dd>
           <dt>URL</dt><dd><code>{url}</code></dd>
-          <dt>Payload Type</dt><dd>json</dd>
+          <dt>Payload Type</dt><dd>JSON</dd>
           <dt>Data</dt><dd>Optional. Add fields you want watched, e.g. <code>email</code> → the mapped email.</dd>
           <dt>Everything else</dt><dd>Leave as it is, then click <strong>Test step</strong>.</dd>
         </dl>
@@ -855,9 +855,11 @@ const PlatformSettings: FC<{ url: string; checkId: string }> = ({ url, checkId }
           <dt>Add module</dt><dd>HTTP → Make a request (last module of the scenario)</dd>
           <dt>URL</dt><dd><code>{url}</code></dd>
           <dt>Method</dt><dd>POST</dd>
-          <dt>Body type</dt><dd>Raw</dd>
-          <dt>Content type</dt><dd>JSON (application/json)</dd>
-          <dt>Request content</dt><dd><code>{body}</code></dd>
+          <dt>Authentication type</dt><dd>No authentication</dd>
+          <dt>Body content type</dt><dd>application/JSON</dd>
+          <dt>Body input method</dt><dd>JSON string</dd>
+          <dt>Body content</dt><dd><code>{body}</code></dd>
+          <dt>Older HTTP module?</dt><dd>On Version 3 the same settings are Body type: Raw, Content type: JSON (application/json), Request content.</dd>
           <dt>Then</dt><dd>Click <strong>Run once</strong>.</dd>
         </dl>
         <GuideLink slug="make" name="Make" checkId={checkId} />
@@ -870,18 +872,23 @@ const PlatformSettings: FC<{ url: string; checkId: string }> = ({ url, checkId }
           <dt>URL</dt><dd><code>{url}</code></dd>
           <dt>Send Body</dt><dd>On · Body Content Type: JSON · Specify Body: Using JSON</dd>
           <dt>JSON</dt><dd><code>{body}</code></dd>
+          <dt>Settings tab</dt><dd>On Error: Continue, so monitoring can never stop your workflow.</dd>
           <dt>Then</dt><dd>Click <strong>Execute step</strong>.</dd>
+          <dt>Or import it</dt>
+          <dd>
+            <a href={`/templates/n8n/stepcanary-heartbeat.json?check=${checkId}`}>Download an n8n template</a> with this URL already filled in,
+            then use Import from File in n8n.
+          </dd>
         </dl>
         <GuideLink slug="n8n" name="n8n" checkId={checkId} />
       </details>
       <details>
         <summary>Pipedream</summary>
         <dl>
-          <dt>Add step</dt><dd>HTTP / Webhook → Send any HTTP Request (last step)</dd>
-          <dt>Method</dt><dd>POST</dd>
+          <dt>Note</dt><dd>Pipedream Workflows shuts down on March 31, 2027, and no longer accepts new signups.</dd>
+          <dt>Add step</dt><dd>A Node.js code step as the last step (recommended), using the code in the guide below.</dd>
           <dt>URL</dt><dd><code>{url}</code></dd>
-          <dt>Body</dt><dd>Content type application/json, <code>{body}</code></dd>
-          <dt>Then</dt><dd>Click <strong>Test</strong>.</dd>
+          <dt>Then</dt><dd>Click <strong>Test</strong>, then <strong>Deploy</strong>.</dd>
         </dl>
         <GuideLink slug="pipedream" name="Pipedream" checkId={checkId} />
       </details>

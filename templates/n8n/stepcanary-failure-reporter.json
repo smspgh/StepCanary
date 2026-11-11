@@ -1,0 +1,48 @@
+{
+  "name": "StepCanary: report failures (error workflow)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## StepCanary failure reporter\n\nThis is a separate workflow that tells StepCanary right away when another workflow fails.\n\n1. Replace the URL in **Report failure to StepCanary** with your check's ping URL followed by `/fail`.\n2. Save this workflow. It does not need to be published.\n3. Open the workflow you are monitoring, then Workflow menu > **Settings** > **Error Workflow**, and choose this workflow.\n\nUse one copy of this workflow for each monitored workflow, so each reports to its own check.\n\nNote: n8n only runs error workflows for automatic executions, not when you run a workflow by hand.",
+        "height": 360,
+        "width": 460,
+        "color": 4
+      },
+      "id": "7f2c3e30-9d31-4e90-9c65-2d3e4f5a6b01",
+      "name": "How to use",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -400]
+    },
+    {
+      "parameters": {},
+      "id": "7f2c3e30-9d31-4e90-9c65-2d3e4f5a6b02",
+      "name": "When another workflow fails",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ping.stepcanary.com/p/YOUR-TOKEN/fail",
+        "options": {}
+      },
+      "id": "7f2c3e30-9d31-4e90-9c65-2d3e4f5a6b03",
+      "name": "Report failure to StepCanary",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "When another workflow fails": {
+      "main": [[{ "node": "Report failure to StepCanary", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {}
+}

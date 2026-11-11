@@ -2,7 +2,7 @@
 // Source of truth: docs/guides/*.md (see scripts/build-guides.mjs).
 
 import { renderMarkdown, titleOf } from '../core/markdown';
-import { GUIDE_MARKDOWN } from './guides-content';
+import { GUIDE_MARKDOWN, TEMPLATE_FILES } from './guides-content';
 
 export interface GuideInfo {
   slug: string;
@@ -26,7 +26,7 @@ const DOC_HOST = 'https://ping.stepcanary.com';
  * Render a guide. `pingBase` is this deployment's ping hostname; with `token` (a signed-in
  * user's own check) every example URL becomes that check's real ping URL, ready to copy.
  */
-export function renderGuide(slug: string, pingBase: string, token?: string): { title: string; html: string } | null {
+export function renderGuide(slug: string, pingBase: string, token?: string, checkId?: string): { title: string; html: string } | null {
   const source = GUIDE_MARKDOWN[slug];
   if (!source) return null;
   const base = pingBase.replace(/\/$/, '');
@@ -38,5 +38,19 @@ export function renderGuide(slug: string, pingBase: string, token?: string): { t
       .split('/p/your-token').join(`/p/${token}`)
       .split(`${base}/p/…`).join(`${base}/p/${token}`);
   }
+  // Template downloads opened from a check carry that check along, so the file comes pre-filled.
+  if (token && checkId) md = md.split('.json)').join(`.json?check=${encodeURIComponent(checkId)})`);
   return { title: titleOf(md), html: renderMarkdown(md) };
+}
+
+/**
+ * An importable template file (currently n8n workflows), with this deployment's ping hostname
+ * and, when known, the customer's real ping URL in place of the placeholder.
+ */
+export function renderTemplate(path: string, pingBase: string, token?: string): string | null {
+  const source = TEMPLATE_FILES[path];
+  if (!source) return null;
+  const base = pingBase.replace(/\/$/, '');
+  const out = source.split(DOC_HOST).join(base);
+  return token ? out.split('/p/YOUR-TOKEN').join(`/p/${token}`) : out;
 }

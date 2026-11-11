@@ -1,0 +1,52 @@
+{
+  "name": "StepCanary: heartbeat ping (add to the end of your workflow)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## StepCanary heartbeat\n\n1. Copy the **StepCanary ping** node into your own workflow and connect it after your **last** node.\n2. Open it and replace the URL with your check's ping URL.\n3. Click **Execute step**. Your StepCanary check page should say \"Connected!\"\n\nOn Error is set to **Continue**, so monitoring can never stop your workflow.",
+        "height": 260,
+        "width": 420,
+        "color": 4
+      },
+      "id": "5d0a1c1e-7b1f-4c7e-9a43-0b1f2c3d4e01",
+      "name": "How to use",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -300]
+    },
+    {
+      "parameters": {},
+      "id": "5d0a1c1e-7b1f-4c7e-9a43-0b1f2c3d4e02",
+      "name": "When clicking Execute workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ping.stepcanary.com/p/YOUR-TOKEN",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\"status\":\"ok\"}",
+        "options": {}
+      },
+      "id": "5d0a1c1e-7b1f-4c7e-9a43-0b1f2c3d4e03",
+      "name": "StepCanary ping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "executeOnce": true
+    }
+  ],
+  "connections": {
+    "When clicking Execute workflow": {
+      "main": [[{ "node": "StepCanary ping", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {}
+}

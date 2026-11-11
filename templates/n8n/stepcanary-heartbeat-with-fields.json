@@ -1,0 +1,55 @@
+{
+  "name": "StepCanary: heartbeat ping with watched fields",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## StepCanary heartbeat with watched fields\n\nUse this version if you want StepCanary to tell you when a field goes blank or missing.\n\n1. Copy the **StepCanary ping** node into your workflow, after your **last** node.\n2. Replace the URL with your check's ping URL.\n3. In **Body Parameters**, change the example rows to the fields you care about. The value of each row is an expression, such as `{{ $json.email }}`.\n4. In StepCanary, edit the check and turn on \"Alert me when the data it sends changes shape.\"\n\nStepCanary records field names and whether each one is filled in. It never stores the values.",
+        "height": 340,
+        "width": 460,
+        "color": 4
+      },
+      "id": "6e1b2d2f-8c20-4d8f-8b54-1c2d3e4f5a01",
+      "name": "How to use",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-40, -380]
+    },
+    {
+      "parameters": {},
+      "id": "6e1b2d2f-8c20-4d8f-8b54-1c2d3e4f5a02",
+      "name": "When clicking Execute workflow",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://ping.stepcanary.com/p/YOUR-TOKEN",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "email", "value": "={{ $json.email }}" },
+            { "name": "order_id", "value": "={{ $json.id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "6e1b2d2f-8c20-4d8f-8b54-1c2d3e4f5a03",
+      "name": "StepCanary ping",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 0],
+      "onError": "continueRegularOutput",
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000
+    }
+  ],
+  "connections": {
+    "When clicking Execute workflow": {
+      "main": [[{ "node": "StepCanary ping", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {}
+}
