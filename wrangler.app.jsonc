@@ -6,7 +6,13 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  "routes": [{ "pattern": "app.stepcanary.com", "custom_domain": true }],
+  // app.stepcanary.com is the dashboard. The bare domain and www show the public site (landing
+  // page and guides) from this same Worker and send everything else to the app hostname.
+  "routes": [
+    { "pattern": "app.stepcanary.com", "custom_domain": true },
+    { "pattern": "stepcanary.com", "custom_domain": true },
+    { "pattern": "www.stepcanary.com", "custom_domain": true }
+  ],
   "triggers": { "crons": ["* * * * *"] },
   "queues": {
     "consumers": [

@@ -43,6 +43,7 @@ import { gapsSince, latestGapEnd, type Check, type Db } from './db';
 import { sendEmail, simpleHtml } from './email';
 import { learnBaseline } from './evaluator';
 import { cleanFolderName, createFolder, deleteFolder, folderBelongsTo, listFolders, renameFolder } from './folders';
+import { GUIDES, renderGuide } from './guides';
 import { makeSender, type SenderEnv } from './sender';
 import {
   BillingPage,
@@ -52,6 +53,8 @@ import {
   ChecksPage,
   FoldersPage,
   gapAffects,
+  GuidePage,
+  GuidesIndexPage,
   LandingPage,
   LoginPage,
   MessagePage,
@@ -134,9 +137,32 @@ export function createApp(dbFactory: DbFactory) {
   const notFound = (c: Ctx) =>
     c.html(<MessagePage account={c.get('account')} title="Check not found" message="It may have been deleted." />, 404);
 
+  // The marketing site (stepcanary.com, www) is served by this same Worker. There it shows only
+  // the public pages; everything else is sent to the app hostname, so sessions live in one place.
+  app.use('*', async (c, next) => {
+    const url = new URL(c.req.url);
+    const appHost = new URL(c.env.APP_URL).host;
+    const local = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(url.host);
+    const publicPage = url.pathname === '/' || url.pathname === '/guides' || url.pathname.startsWith('/guides/');
+    if (url.host !== appHost && !local && !publicPage) return c.redirect(`${trimSlash(c.env.APP_URL)}${url.pathname}${url.search}`, 302);
+    await next();
+  });
+
   // --- public -----------------------------------------------------------------------------------
 
   app.get('/', (c) => (c.get('account') ? c.redirect('/checks') : c.html(<LandingPage />)));
+
+  app.get('/guides', (c) => c.html(<GuidesIndexPage account={c.get('account')} guides={GUIDES} checkId={c.req.query('check')} />));
+
+  app.get('/guides/:slug', async (c) => {
+    const account = c.get('account');
+    const checkId = c.req.query('check');
+    // Signed in and arriving from one of your own checks: fill in that check's real ping URL.
+    const token = account && checkId ? (await getCheck(c.get('db'), account.id, checkId))?.token : undefined;
+    const guide = renderGuide(c.req.param('slug'), c.env.PING_URL, token);
+    if (!guide) return c.html(<MessagePage account={account} title="Guide not found" message="We do not have a guide at that address." />, 404);
+    return c.html(<GuidePage account={account} title={guide.title} html={guide.html} personalised={!!token} />);
+  });
 
   app.get('/login', (c) => (c.get('account') ? c.redirect('/checks') : c.html(<LoginPage />)));
 

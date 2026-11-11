@@ -13,7 +13,8 @@
     "gen:secret": "node scripts/gen-secret.mjs",
     "build:check": "wrangler deploy -c wrangler.ingest.jsonc --dry-run --outdir .build/ingest && wrangler deploy -c wrangler.app.jsonc --dry-run --outdir .build/app",
     "deploy:ingest": "wrangler deploy -c wrangler.ingest.jsonc",
-    "deploy:app": "wrangler deploy -c wrangler.app.jsonc"
+    "deploy:app": "wrangler deploy -c wrangler.app.jsonc",
+    "build:guides": "node scripts/build-guides.mjs"
   },
   "dependencies": {
     "croner": "^11.0.0",

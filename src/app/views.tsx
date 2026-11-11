@@ -51,6 +51,23 @@ dl{display:grid;grid-template-columns:170px 1fr;gap:6px 12px;margin:10px 0 0}dt{
 .spark rect{fill:#9db7e8}.days label{display:inline-block;font-weight:400;margin:0 10px 0 0}
 .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.plans .card{margin:0}.plans ul{padding-left:18px;margin:8px 0 14px}
 .price{font-size:22px;font-weight:700}
+main.wide{max-width:none;padding:0}
+section{padding:56px 16px}section.band{background:#eef1f5}.inner{max-width:960px;margin:0 auto}.inner.narrow{max-width:720px}
+section h2{font-size:24px;margin:0 0 22px;text-align:center}
+.hero{text-align:center;padding:72px 16px 56px}.hero h1{font-size:40px;line-height:1.15;margin:0 auto 16px;max-width:760px}
+.eyebrow{color:var(--accent);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.06em;margin:0 0 12px}
+.lede{font-size:18px;color:#3d4756;max-width:640px;margin:0 auto 22px}.btn.big{padding:11px 20px;font-size:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}.grid .card{margin:0}.grid .card p{margin:8px 0 0;color:#3d4756}.grid.two{grid-template-columns:repeat(auto-fit,minmax(380px,1fr))}
+.step{padding:4px 8px}.step p{color:#3d4756;margin:6px 0 0}.num{display:inline-flex;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;align-items:center;justify-content:center;margin-right:8px}
+.mock{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;max-width:680px;margin:32px auto 10px;box-shadow:0 6px 24px rgba(16,24,40,.08);text-align:left}
+.mock-head{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:6px;display:flex;flex-direction:column;gap:2px}
+details.faq{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:10px}details.faq p{margin:10px 0 2px;color:#3d4756}
+footer{padding:24px 16px;color:var(--muted);font-size:13px;text-align:center}
+a.tile{display:block;color:var(--text)}a.tile:hover{text-decoration:none;border-color:var(--accent)}
+.guide h1{font-size:24px}.guide h2{font-size:18px;margin-top:30px;padding-top:18px;border-top:1px solid var(--line)}.guide li{margin:6px 0}
+.guide table{margin:12px 0}.guide td:first-child{white-space:nowrap}.guide td code{word-break:break-all}
+pre{background:#f1f3f5;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto}pre code{font-size:13px}
+@media(max-width:600px){.hero h1{font-size:30px}.guide td:first-child{white-space:normal}}
 `;
 
 const JS = `
@@ -85,21 +102,29 @@ if(j.sig&&j.sig!==cur){cur=j.sig;location.reload()}}).catch(function(){})},15000
 })();
 `;
 
-type NavKey = 'checks' | 'channels' | 'folders' | 'billing';
+type NavKey = 'checks' | 'channels' | 'folders' | 'billing' | 'guides';
 
-export const Layout: FC<{ title: string; account?: Account | null; nav?: NavKey; sig?: string; children?: Child }> = ({
-  title,
-  account,
-  nav,
-  sig,
-  children,
-}) => (
+export const Layout: FC<{
+  title: string;
+  account?: Account | null;
+  nav?: NavKey;
+  sig?: string;
+  /** For public pages: shown in search results and link previews. */
+  description?: string;
+  /** Full-width page (the landing page lays out its own sections). */
+  wide?: boolean;
+  children?: Child;
+}> = ({ title, account, nav, sig, description, wide, children }) => (
   <html lang="en">
     <head>
       <meta charset="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       {sig != null ? <meta name="sc-sig" content={sig} /> : null}
       <title>{title} · StepCanary</title>
+      {description ? <meta name="description" content={description} /> : null}
+      {description ? <meta property="og:title" content={`${title} · StepCanary`} /> : null}
+      {description ? <meta property="og:description" content={description} /> : null}
+      {description ? <meta property="og:type" content="website" /> : null}
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
     </head>
     <body>
@@ -112,8 +137,15 @@ export const Layout: FC<{ title: string; account?: Account | null; nav?: NavKey;
               <a href="/channels" class={nav === 'channels' ? 'on' : ''}>Alert channels</a>
               {account.plan === 'agency' ? <a href="/folders" class={nav === 'folders' ? 'on' : ''}>Clients</a> : null}
               <a href="/billing" class={nav === 'billing' ? 'on' : ''}>Plan</a>
+              <a href="/guides" class={nav === 'guides' ? 'on' : ''}>Guides</a>
             </nav>
-          ) : null}
+          ) : (
+            <nav>
+              <a href="/#how">How it works</a>
+              <a href="/#pricing">Pricing</a>
+              <a href="/guides" class={nav === 'guides' ? 'on' : ''}>Guides</a>
+            </nav>
+          )}
           <span class="spacer" />
           {account ? (
             <>
@@ -127,7 +159,7 @@ export const Layout: FC<{ title: string; account?: Account | null; nav?: NavKey;
           )}
         </div>
       </header>
-      <main>{children}</main>
+      <main class={wide ? 'wide' : ''}>{children}</main>
       <script dangerouslySetInnerHTML={{ __html: JS }} />
     </body>
   </html>
@@ -223,16 +255,211 @@ const Notes: FC<{ check: Check; latestGapEnd: number | null; now: number }> = ({
 
 // --- pages --------------------------------------------------------------------------------------
 
+const LANDING_DESCRIPTION =
+  'StepCanary watches your Zapier, Make, n8n and Pipedream automations. Add one HTTP step; if an automation stops, slows down or starts sending blank data, you get a plain-English alert.';
+
+const CATCHES: [string, string][] = [
+  ['It stopped running', 'The Zap was switched off, a connection expired, or the trigger quietly stopped firing. You hear about it within minutes, not when a client asks where their leads went.'],
+  ['It runs, but far less than usual', 'StepCanary learns what a normal Tuesday looks like. “Usually about 40 runs, only 3 yesterday” lands in your inbox at 8am.'],
+  ['It runs, but the data is blank', 'A mapped field starts arriving empty after someone renames a form question. We notice the field went blank, without ever storing what was in it.'],
+  ['It is stuck in a loop', 'A workflow that triggers itself can burn a month of tasks in an hour. We spot the flood and tell you once, not five hundred times.'],
+];
+
+const FAQ: [string, string][] = [
+  ['Do you need access to my Zapier or Make account?', 'No. There is nothing to connect or authorise. You add one ordinary HTTP step to the automation, pointing at a private URL we give you. Remove the step and we are gone.'],
+  ['What do you store?', 'Your email address, your check settings, and when each ping arrived. If you turn on payload monitoring we keep the names and types of the fields (“email: text”), never the values. Payments are handled by Stripe.'],
+  ['Will it wake me up for nothing?', 'It is built not to. Business-hours automations can be given active hours so quiet nights and weekends never alert. Volume checks are compared by day of the week. And if we have a problem on our side, we show a “monitoring gap” instead of telling you your automation is down.'],
+  ['Does it work on Zapier’s free plan?', 'The step uses “Webhooks by Zapier”, which Zapier includes on its paid plans. Make, n8n and Pipedream include HTTP steps on every plan.'],
+  ['What happens if I move to a smaller plan?', 'Nothing is deleted. Checks over the smaller plan’s limit are paused, starting with the ones that pinged least recently, and resume if you upgrade again.'],
+  ['Can I cancel?', 'Any time, from the Plan page. You keep what you paid for until the end of the billing period.'],
+];
+
 export const LandingPage: FC = () => (
-  <Layout title="Know when your automations stop">
-    <div class="card">
-      <h1>Know the moment a Zap, scenario or workflow stops running.</h1>
-      <p>
-        Add one HTTP step to your automation. If the pings stop, StepCanary tells you in plain English – before your customer does. Works
-        with Zapier, Make, n8n and Pipedream.
-      </p>
-      <a class="btn primary" href="/login">Get started free</a>
+  <Layout title="Know when your automations stop" description={LANDING_DESCRIPTION} wide>
+    <section class="hero">
+      <div class="inner">
+        <p class="eyebrow">For Zapier, Make, n8n and Pipedream</p>
+        <h1>Know the moment an automation stops, before your client does.</h1>
+        <p class="lede">
+          Add one HTTP step to a Zap, scenario or workflow. If it stops running, runs far less than usual, or starts sending blank data,
+          StepCanary tells you in plain English.
+        </p>
+        <p>
+          <a class="btn primary big" href="/login">Start free</a> <a class="btn big" href="#how">See how it works</a>
+        </p>
+        <p class="muted small">Free for 3 automations. No card needed. Set up in about three minutes.</p>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="inner">
+        <h2>Automations fail quietly. These are the four ways we catch.</h2>
+        <div class="grid two">
+          {CATCHES.map(([title, text]) => (
+            <div class="card">
+              <strong>{title}</strong>
+              <p>{text}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="inner">
+        <h2>How it works</h2>
+        <div class="grid three">
+          <div class="step">
+            <span class="num">1</span>
+            <strong>Create a check</strong>
+            <p>Name it after the automation and say how often it should run, or let us learn that for you.</p>
+          </div>
+          <div class="step">
+            <span class="num">2</span>
+            <strong>Paste one URL</strong>
+            <p>Add an HTTP step as the last step of your automation and paste in the URL we give you. Press “Test” and watch it connect.</p>
+          </div>
+          <div class="step">
+            <span class="num">3</span>
+            <strong>Get on with your day</strong>
+            <p>Every run checks in. If the check-ins stop or change, you get an email, Slack or Discord message.</p>
+          </div>
+        </div>
+        <div class="mock">
+          <div class="mock-head">
+            <strong>Down: “New lead → CRM” has stopped checking in</strong>
+            <span class="muted small">StepCanary &lt;alerts@stepcanary.com&gt;</span>
+          </div>
+          <p>Your automation “New lead → CRM” has stopped checking in.</p>
+          <p>
+            What we expected: at least one ping every 2 hours, counted only during Mon–Fri, 09:00–18:00 (America/New_York), with 15 minutes
+            of grace.
+            <br />
+            What happened: nothing has arrived in time. The last successful ping arrived Tue 10 Nov 2026, 10:42 EST (2 hours 15 minutes
+            earlier).
+          </p>
+          <p class="muted">
+            Common causes: the workflow was turned off or paused, an earlier step is failing, a connected account needs reconnecting, or the
+            trigger has stopped firing.
+          </p>
+        </div>
+        <p class="muted small" style="text-align:center">A real alert. It says which automation, what we expected, and what happened.</p>
+        <p style="text-align:center">
+          Step-by-step guides: <a href="/guides/zapier">Zapier</a> · <a href="/guides/make">Make</a> · <a href="/guides/n8n">n8n</a> ·{' '}
+          <a href="/guides/pipedream">Pipedream</a>
+        </p>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="inner">
+        <h2>Built to be trusted, not to be noisy</h2>
+        <div class="grid three">
+          <div class="card">
+            <strong>Quiet when it should be</strong>
+            <p>Lead forms sleep at night. Give a check active hours and the timer simply pauses outside them.</p>
+          </div>
+          <div class="card">
+            <strong>Honest about our own bad days</strong>
+            <p>
+              We monitor ourselves every minute. If our side has a problem, you see “monitoring gap”, not a false “your automation is down”.
+            </p>
+          </div>
+          <div class="card">
+            <strong>We never keep your data</strong>
+            <p>Payload monitoring looks at field names and whether each one is filled in. The contents are never stored.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pricing">
+      <div class="inner">
+        <h2>Pricing</h2>
+        <div class="plans">
+          {(['free', 'pro', 'agency'] as const).map((p) => (
+            <div class="card" style={p === 'pro' ? 'border-color:var(--accent)' : ''}>
+              <strong>{PLANS[p].label}</strong>
+              <div class="price">{PLANS[p].priceLabel}</div>
+              <ul>
+                {PLAN_FEATURES[p].map((f) => (
+                  <li>{f}</li>
+                ))}
+              </ul>
+              <a class={p === 'pro' ? 'btn primary' : 'btn'} href="/login">{p === 'free' ? 'Start free' : `Start with ${PLANS[p].label}`}</a>
+            </div>
+          ))}
+        </div>
+        <p class="muted small" style="text-align:center;margin-top:14px">
+          Everyone starts on Free. Upgrade from the Plan page when you need more; cancel any time.
+        </p>
+        <p class="muted small" style="text-align:center">
+          Agencies: put each client’s automations in a folder and get a weekly health summary per client, ready to forward as proof of
+          maintenance.
+        </p>
+      </div>
+    </section>
+
+    <section class="band">
+      <div class="inner narrow">
+        <h2>Questions</h2>
+        {FAQ.map(([q, a]) => (
+          <details class="faq">
+            <summary>{q}</summary>
+            <p>{a}</p>
+          </details>
+        ))}
+      </div>
+    </section>
+
+    <section class="hero">
+      <div class="inner">
+        <h2 style="font-size:24px">Find out first.</h2>
+        <p>
+          <a class="btn primary big" href="/login">Start free</a>
+        </p>
+      </div>
+    </section>
+
+    <footer>
+      <div class="inner">
+        <span>© {new Date().getFullYear()} StepCanary</span> · <a href="/guides">Guides</a> · <a href="/login">Sign in</a>
+      </div>
+    </footer>
+  </Layout>
+);
+
+export const GuidesIndexPage: FC<{ account?: Account | null; guides: { slug: string; platform: string; summary: string }[]; checkId?: string }> = ({
+  account,
+  guides,
+  checkId,
+}) => (
+  <Layout title="Setup guides" account={account} nav="guides" description="Step-by-step guides for monitoring Zapier, Make, n8n and Pipedream automations with StepCanary.">
+    <h1>Setup guides</h1>
+    <p class="muted">Pick the tool your automation runs in. Each guide takes about three minutes.</p>
+    <div class="grid">
+      {guides.map((g) => (
+        <a class="card tile" href={`/guides/${g.slug}${checkId ? `?check=${checkId}` : ''}`}>
+          <strong>{g.platform}</strong>
+          <p>{g.summary}</p>
+        </a>
+      ))}
     </div>
+  </Layout>
+);
+
+export const GuidePage: FC<{ account?: Account | null; title: string; html: string; personalised: boolean }> = ({ account, title, html, personalised }) => (
+  <Layout title={title} account={account} nav="guides" description={`${title}: a step-by-step guide.`}>
+    <p class="small">
+      <a href="/guides">← All guides</a>
+    </p>
+    {personalised ? <div class="banner ok">The ping URL in this guide is the real one for your check, ready to copy.</div> : null}
+    {!account ? (
+      <div class="banner">
+        You need a StepCanary check to follow this guide. <a href="/login">Create one free</a> – it takes a minute.
+      </div>
+    ) : null}
+    <article class="card guide" dangerouslySetInnerHTML={{ __html: html }} />
   </Layout>
 );
 
@@ -528,7 +755,13 @@ export const CheckFormPage: FC<{
 
 const Shot: FC<{ label: string }> = ({ label }) => <div class="shot">[ Screenshot placeholder: {label} ]</div>;
 
-const PlatformSettings: FC<{ url: string }> = ({ url }) => {
+const GuideLink: FC<{ slug: string; name: string; checkId: string }> = ({ slug, name, checkId }) => (
+  <p class="hint">
+    <a href={`/guides/${slug}?check=${checkId}`}>Full step-by-step guide for {name}, with your ping URL filled in →</a>
+  </p>
+);
+
+const PlatformSettings: FC<{ url: string; checkId: string }> = ({ url, checkId }) => {
   const body = '{"status":"ok"}';
   return (
     <div class="card">
@@ -543,7 +776,7 @@ const PlatformSettings: FC<{ url: string }> = ({ url }) => {
           <dt>Data</dt><dd>Optional. Add fields you want watched, e.g. <code>email</code> → the mapped email.</dd>
           <dt>Everything else</dt><dd>Leave as it is, then click <strong>Test step</strong>.</dd>
         </dl>
-        <Shot label="Zapier – Webhooks by Zapier POST step" />
+        <GuideLink slug="zapier" name="Zapier" checkId={checkId} />
       </details>
       <details>
         <summary>Make</summary>
@@ -556,7 +789,7 @@ const PlatformSettings: FC<{ url: string }> = ({ url }) => {
           <dt>Request content</dt><dd><code>{body}</code></dd>
           <dt>Then</dt><dd>Click <strong>Run once</strong>.</dd>
         </dl>
-        <Shot label="Make – HTTP “Make a request” module" />
+        <GuideLink slug="make" name="Make" checkId={checkId} />
       </details>
       <details>
         <summary>n8n</summary>
@@ -568,7 +801,7 @@ const PlatformSettings: FC<{ url: string }> = ({ url }) => {
           <dt>JSON</dt><dd><code>{body}</code></dd>
           <dt>Then</dt><dd>Click <strong>Execute step</strong>.</dd>
         </dl>
-        <Shot label="n8n – HTTP Request node" />
+        <GuideLink slug="n8n" name="n8n" checkId={checkId} />
       </details>
       <details>
         <summary>Pipedream</summary>
@@ -579,7 +812,7 @@ const PlatformSettings: FC<{ url: string }> = ({ url }) => {
           <dt>Body</dt><dd>Content type application/json, <code>{body}</code></dd>
           <dt>Then</dt><dd>Click <strong>Test</strong>.</dd>
         </dl>
-        <Shot label="Pipedream – Send any HTTP Request step" />
+        <GuideLink slug="pipedream" name="Pipedream" checkId={checkId} />
       </details>
       <p class="hint">
         Advanced: send to <code>{url}/fail</code> from an error path to report a failure immediately, or <code>{url}/start</code> when a run
@@ -824,7 +1057,7 @@ export const CheckPage: FC<{
 
       {check.cfg.mode === 'volume' ? <VolumePanel check={check} now={now} /> : null}
 
-      <PlatformSettings url={pingUrl} />
+      <PlatformSettings url={pingUrl} checkId={check.id} />
 
       <div class="card">
         <h2 style="margin-top:0">Recent pings</h2>

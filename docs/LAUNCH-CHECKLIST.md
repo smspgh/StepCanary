@@ -24,7 +24,7 @@ this once per platform with a real account, and fix any wording that does not ma
 - [ ] Pipedream: follow `docs/guides/pipedream.md`.
 - [ ] Take the screenshots named in each guide's placeholders and add them.
 - [ ] On one platform, map a field, enable drift, then blank the field: the drift alert arrives and "Mark as optional" silences it.
-- [ ] Publish the guides where customers can reach them (help site or pages in the app) and link them from the check page.
+- [x] Guides are published in the app at `/guides` and linked from every check page (with that check's ping URL filled in). After editing a guide in `docs/guides/`, run `npm run build:guides` and deploy.
 
 ## 3. Alerts arrive
 
@@ -45,7 +45,7 @@ this once per platform with a real account, and fix any wording that does not ma
 
 ## 5. The product explains itself
 
-- [ ] **(blocker)** The landing page says what it does, who it is for, and shows pricing.
+- [x] The landing page at `stepcanary.com` says what it does, who it is for, and shows pricing. Read every claim on it once and confirm you are happy to stand behind it.
 - [ ] Pricing on the landing page matches the Plan page and the Stripe prices.
 - [ ] Sign up with a brand-new email address and create a first check without reading any docs. Note every place you hesitated and fix the wording.
 - [ ] The "from" name and address on emails look right on a phone.
