@@ -60,7 +60,7 @@ const STATUS_WORD: Record<string, string> = { up: 'Healthy', late: 'Late', down:
 export function composeWeeklySummary(input: SummaryInput): SummaryEmail {
   const from = DateTime.fromMillis(input.periodStart, { zone: 'utc' });
   const to = DateTime.fromMillis(input.periodEnd, { zone: 'utc' }).minus({ days: 1 });
-  const range = `${from.toFormat('d LLL')} – ${to.toFormat('d LLL yyyy')}`;
+  const range = `${from.toFormat('LLL d')} – ${to.toFormat('LLL d, yyyy')}`;
   const totalPings = input.checks.reduce((a, c) => a + c.pings, 0);
   const totalIncidents = input.checks.reduce((a, c) => a + c.incidents, 0);
   const healthy = input.checks.filter((c) => c.status === 'up').length;

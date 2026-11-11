@@ -65,7 +65,7 @@ export function learningPeriod(firstPingAt: number, tz: string): Interval {
 
 /**
  * Daily results are judged, and baselines announced, at this hour in the check's timezone, so
- * the email lands at the start of the working day instead of just after midnight.
+ * the email lands at the start of the workday instead of just after midnight.
  */
 export const MORNING_HOUR = 8;
 
@@ -175,7 +175,7 @@ export function lastClosedBucket(b: Baseline, tz: string, window: ActiveWindow |
   const dayName = dt.toFormat('cccc');
   if (b.granularity === 'daily') {
     const expected = b.daily[String(dt.weekday)];
-    return { start, end, expected: expected ?? null, when: `on a ${dayName}`, label: dt.toFormat('ccc d LLL') };
+    return { start, end, expected: expected ?? null, when: `on a ${dayName}`, label: dt.toFormat('ccc, LLL d') };
   }
   const expected = b.hourly[`${dt.weekday}-${dt.hour}`];
   const judged = expected != null && expected >= HOURLY_MIN_EXPECTED && isInWindow(start, window, tz);
@@ -183,8 +183,8 @@ export function lastClosedBucket(b: Baseline, tz: string, window: ActiveWindow |
     start,
     end,
     expected: judged ? expected : null,
-    when: `between ${dt.toFormat('HH:mm')} and ${dt.plus({ hours: 1 }).toFormat('HH:mm')} on a ${dayName}`,
-    label: `${dt.toFormat('ccc d LLL, HH:mm')}–${dt.plus({ hours: 1 }).toFormat('HH:mm')}`,
+    when: `between ${dt.toFormat('h:mm a')} and ${dt.plus({ hours: 1 }).toFormat('h:mm a')} on a ${dayName}`,
+    label: `${dt.toFormat('ccc, LLL d, h:mm a')}–${dt.plus({ hours: 1 }).toFormat('h:mm a')}`,
   };
 }
 
@@ -195,7 +195,7 @@ export function nextVolumeEvalAt(b: Baseline, tz: string, asOf: number): number 
   return asOf < previous ? previous : judgedAt(b, tz, current);
 }
 
-/** Pings counted towards a bucket: only hours inside the active window. */
+/** Pings counted toward a bucket: only hours inside the active window. */
 export function countInBucket(counts: HourCount[], bucket: Interval, window: ActiveWindow | null, tz: string): number {
   let total = 0;
   for (const c of counts) {

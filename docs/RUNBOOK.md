@@ -46,7 +46,7 @@ SELECT status, attempts, last_error, subject, next_attempt_at FROM alert_deliver
 | `note` contains `ingest_stalled` | Canary pings are not reaching the database | See "Queue backlog" below. |
 | `errors` > 0 but `healthy` true | One specific check fails to evaluate | Find `evaluate_check_failed <check id>` in the logs; pause that check with `UPDATE checks SET status = 'paused', next_eval_at = NULL WHERE id = '...'` and fix the cause. |
 
-Nothing needs to be "repaired" afterwards. The next healthy run records the gap, and evaluation
+Nothing needs to be "repaired" afterward. The next healthy run records the gap, and evaluation
 resumes on the run after that.
 
 ### Queue backlog / `consume_failed`

@@ -5,7 +5,7 @@
 //    "down", "drift" or "runaway" can only be raised once per occurrence
 //  - exactly one delivery row per (incident, event, channel) (unique constraint)
 // State change, incident and delivery rows are written in one transaction; sending happens
-// afterwards from the outbox. Delivery is at-least-once: the only way to get a duplicate is a
+// afterward from the outbox. Delivery is at-least-once: the only way to get a duplicate is a
 // crash between the provider accepting a message and us marking it sent, and we pass the delivery
 // id to the provider as an idempotency key where supported.
 

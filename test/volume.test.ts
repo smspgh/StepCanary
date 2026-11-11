@@ -79,7 +79,7 @@ describe('learning a volume baseline', () => {
 
   it('buckets by the check timezone, including across a DST change', () => {
     const tz = 'America/New_York';
-    // Two weeks around the autumn change (1 Nov 2026). 10 pings at 09:00 local every day.
+    // Two weeks around the fall change (1 Nov 2026). 10 pings at 09:00 local every day.
     const p = { start: at('2026-10-26 00:00', tz), end: at('2026-11-09 00:00', tz) };
     const b = computeBaseline({ counts: fill(p.start, p.end, tz, (hour) => (hour === 9 ? 10 : 0)), period: p, timezone: tz, window: null, gaps: [] });
     expect(b.days).toBe(14);
@@ -110,7 +110,7 @@ describe('judging volume', () => {
     // At 08:00 local, Monday is judged.
     const b = lastClosedBucket(b0, tz, null, at('2026-10-20 08:00', tz));
     expect([b.start, b.end]).toEqual([at('2026-10-19 00:00', tz), at('2026-10-20 00:00', tz)]);
-    expect(b).toMatchObject({ expected: 40, when: 'on a Monday', label: 'Mon 19 Oct' });
+    expect(b).toMatchObject({ expected: 40, when: 'on a Monday', label: 'Mon, Oct 19' });
     expect(nextVolumeEvalAt(b0, tz, at('2026-10-20 08:00', tz))).toBe(at('2026-10-21 08:00', tz));
     expect(nextVolumeEvalAt(daily, 'UTC', at('2026-10-20 15:00'))).toBe(at('2026-10-21 08:00'));
   });
@@ -151,14 +151,14 @@ describe('judging volume', () => {
     const dayOnly = computeBaseline({ counts: fill(p.start, p.end, 'UTC', (hour) => (hour >= 8 && hour < 20 ? 100 : 2)), period: p, timezone: 'UTC', window: null, gaps: [] });
     expect(dayOnly.granularity).toBe('hourly');
     const busyHour = lastClosedBucket(dayOnly, 'UTC', null, at('2026-10-20 15:06'));
-    expect(busyHour).toMatchObject({ start: at('2026-10-20 14:00'), expected: 100, when: 'between 14:00 and 15:00 on a Tuesday' });
+    expect(busyHour).toMatchObject({ start: at('2026-10-20 14:00'), expected: 100, when: 'between 2:00 PM and 3:00 PM on a Tuesday' });
     expect(lastClosedBucket(dayOnly, 'UTC', null, at('2026-10-20 04:06')).expected).toBeNull(); // 03:00 normally has 2
     const window: ActiveWindow = { days: [1, 2, 3, 4, 5], start: 8 * 60, end: 20 * 60 };
     expect(lastClosedBucket(dayOnly, 'UTC', window, at('2026-10-24 15:06')).expected).toBeNull(); // Saturday
     expect(nextVolumeEvalAt(dayOnly, 'UTC', at('2026-10-20 15:06'))).toBe(at('2026-10-20 16:05'));
   });
 
-  it('counts only in-window pings towards a day', () => {
+  it('counts only in-window pings toward a day', () => {
     const window: ActiveWindow = { days: [1, 2, 3, 4, 5], start: 9 * 60, end: 11 * 60 };
     const monday = { start: at('2026-10-19 00:00'), end: at('2026-10-20 00:00') };
     const counts = fill(monday.start, monday.end, 'UTC', () => 5);

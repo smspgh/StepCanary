@@ -69,7 +69,7 @@ same steps in live mode.
      customer who moves from Agency to Pro loses Agency features at once and gets a credit
      instead. Upgrades should stay immediate.
 
-   The Plan page in StepCanary shows either pending change ("cancelled, active until…" or
+   The Plan page in StepCanary shows either pending change ("canceled, active until…" or
    "changes to Pro on…") and keeps the current plan until Stripe says the period has ended.
 
 3. **Webhook** (Stripe → Developers → Webhooks → Add endpoint):
@@ -92,18 +92,18 @@ same steps in live mode.
 5. **Test purchase** (test mode): sign in, open Plan, choose Pro, pay with card
    `4242 4242 4242 4242` (any future expiry, any CVC). Within a few seconds the Plan page should
    show Pro. Then use "Manage billing" to switch to Agency, and to cancel; the plan should
-   follow each time. Cancelling takes effect at the end of the paid period unless you choose
+   follow each time. Canceling takes effect at the end of the paid period unless you choose
    immediate cancellation in the portal settings.
 
 6. **Go live**: repeat steps 1-4 in live mode (new products, new webhook, live keys).
 
 ## How the new pieces behave (for support questions)
 
-| Feature | Behaviour |
+| Feature | Behavior |
 |---|---|
 | Runaway loop | Above 60 pings a minute per check we answer 200 but stop queueing them, and queue one marker a minute instead. One "Runaway loop detected" alert; it closes by itself 10 minutes after the loop stops. The limit is enforced per Cloudflare location, so it is approximate. |
 | Payload drift | Off by default, per check. The first payload defines normal. A change raises one alert and stays open until the user clicks "Accept new shape" or "Mark as optional". Drift never marks a check down. |
-| Volume baseline | Learns for 14 full days, then emails the account owner once that the baseline is ready to review. Nothing alerts until the user turns it on. Each day is judged at 08:00 the next morning in the check's timezone, so alerts arrive at the start of the working day (checks averaging 20+ pings an hour are also judged hour by hour). Days with nothing normally expected, and days touched by a monitoring gap, are skipped. |
+| Volume baseline | Learns for 14 full days, then emails the account owner once that the baseline is ready to review. Nothing alerts until the user turns it on. Each day is judged at 08:00 the next morning in the check's timezone, so alerts arrive at the start of the workday (checks averaging 20+ pings an hour are also judged hour by hour). Days with nothing normally expected, and days touched by a monitoring gap, are skipped. |
 | Channels | New channels attach to all existing checks. Webhook URLs are encrypted and never shown again. Free accounts only ever get email. |
 | Weekly summary | Agency only. One email per client folder, sent to the account owner on Mondays from 09:00 UTC, covering the previous Monday-Sunday. Not sent for a week before the folder existed. |
 | Downgrade | Checks using paid features are paused first, then the least recently pinged beyond the limit. Nothing is deleted, and upgrading again resumes them. |

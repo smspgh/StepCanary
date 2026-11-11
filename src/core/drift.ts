@@ -76,7 +76,7 @@ export function acceptShape(observed: Shape): Shape {
 
 /**
  * "Mark key as optional": every changed key becomes optional, and any new types or keys seen are
- * added to what is accepted. Afterwards the same payload no longer counts as drift.
+ * added to what is accepted. Afterward the same payload no longer counts as drift.
  */
 export function markOptional(accepted: Shape, observed: Shape, optional: readonly string[]): { accepted: Shape; optional: string[] } {
   const changes = diffShape(accepted, observed, optional);

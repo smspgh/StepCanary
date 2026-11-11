@@ -23,7 +23,7 @@ export function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-export function simpleHtml(text: string, link?: { url: string; label: string }): string {
+export function simpleHtml(text: string, link?: { url: string; label: string }, footer?: string): string {
   const paragraphs = text
     .split(/\n{2,}/)
     .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br>')}</p>`)
@@ -31,7 +31,7 @@ export function simpleHtml(text: string, link?: { url: string; label: string }):
   const button = link
     ? `<p style="margin:20px 0"><a href="${escapeHtml(link.url)}" style="background:#1f6feb;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none">${escapeHtml(link.label)}</a></p>`
     : '';
-  return `<div style="font:15px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c2128;max-width:560px">${paragraphs}${button}</div>`;
+  return `<div style="font:15px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1c2128;max-width:560px">${paragraphs}${button}${footer ? `<p style="margin:22px 0 0;padding-top:12px;border-top:1px solid #e3e6ea;color:#667085;font-size:13px">${escapeHtml(footer)}</p>` : ''}</div>`;
 }
 
 export function buildRequest(env: EmailEnv, email: Email): { url: string; init: RequestInit } {

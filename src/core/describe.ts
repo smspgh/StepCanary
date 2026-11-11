@@ -21,9 +21,10 @@ export function formatDuration(totalSeconds: number): string {
 }
 
 export function formatClock(minutes: number): string {
-  const h = Math.floor(minutes / 60);
+  const h24 = Math.floor(minutes / 60) % 24;
   const m = minutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${h24 < 12 ? 'AM' : 'PM'}`;
 }
 
 export function formatDays(days: number[]): string {
@@ -57,7 +58,7 @@ export function describeExpectation(cfg: CheckConfig): string {
 }
 
 export function formatInstant(ms: number, timezone: string): string {
-  return DateTime.fromMillis(ms, { zone: timezone }).toFormat("ccc d LLL yyyy, HH:mm ZZZZ");
+  return DateTime.fromMillis(ms, { zone: timezone }).toFormat("ccc, LLL d, yyyy, h:mm a ZZZZ");
 }
 
 export type AlertEvent = 'down' | 'recovered' | 'drift' | 'runaway';

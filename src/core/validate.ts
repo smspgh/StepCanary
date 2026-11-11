@@ -62,7 +62,7 @@ export function validateCron(expr: string, timezone: string): string | null {
     if (!new Cron(expr, { timezone }).nextRun()) return 'Schedule: this schedule never runs.';
     return null;
   } catch {
-    return 'Schedule: we could not understand this schedule. Example: "0 9 * * 1-5" = 09:00 on weekdays.';
+    return 'Schedule: we could not understand this schedule. Example: "0 9 * * 1-5" = 9:00 AM on weekdays.';
   }
 }
 
@@ -73,7 +73,7 @@ function activeWindowFrom(form: FormData, limits: PlanLimits, errors: string[]):
   const start = clock(one(form.window_start));
   const end = clock(one(form.window_end));
   if (days.length === 0) errors.push('Active window: pick at least one day.');
-  if (start == null || end == null) errors.push('Active window: enter times as HH:MM, e.g. 09:00 and 18:00.');
+  if (start == null || end == null) errors.push('Active window: choose a start time and an end time.');
   else if (end <= start) errors.push('Active window: the end time must be after the start time (overnight windows are not supported yet).');
   return days.length && start != null && end != null && end > start ? { days, start, end } : null;
 }
@@ -119,7 +119,7 @@ export function validateCheckForm(form: FormData, limits: PlanLimits): { ok: tru
   if (driftEnabled && !limits.payloadDrift) errors.push('Payload drift alerts are part of the Pro plan.');
 
   const folderId = limits.folders ? one(form.folder_id) || null : null;
-  // The form always lists channels, so "none ticked" would silence the check: refuse that.
+  // The form always lists channels, so "none selected" would silence the check: refuse that.
   const channelIds = one(form.channels_shown) ? many(form.channel_ids) : undefined;
   if (channelIds && channelIds.length === 0) errors.push('Alerts: pick at least one place to send alerts.');
 

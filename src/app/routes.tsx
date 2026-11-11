@@ -43,7 +43,7 @@ import { gapsSince, latestGapEnd, type Check, type Db } from './db';
 import { sendEmail, simpleHtml } from './email';
 import { learnBaseline } from './evaluator';
 import { cleanFolderName, createFolder, deleteFolder, folderBelongsTo, listFolders, renameFolder } from './folders';
-import { GUIDES, renderGuide } from './guides';
+import { CONCEPT_SLUG, GUIDES, renderGuide } from './guides';
 import { makeSender, type SenderEnv } from './sender';
 import {
   BillingPage,
@@ -161,7 +161,7 @@ export function createApp(dbFactory: DbFactory) {
     const token = account && checkId ? (await getCheck(c.get('db'), account.id, checkId))?.token : undefined;
     const guide = renderGuide(c.req.param('slug'), c.env.PING_URL, token);
     if (!guide) return c.html(<MessagePage account={account} title="Guide not found" message="We do not have a guide at that address." />, 404);
-    return c.html(<GuidePage account={account} title={guide.title} html={guide.html} personalised={!!token} />);
+    return c.html(<GuidePage account={account} title={guide.title} html={guide.html} personalized={!!token} concept={c.req.param('slug') === CONCEPT_SLUG} />);
   });
 
   app.get('/login', (c) => (c.get('account') ? c.redirect('/checks') : c.html(<LoginPage />)));

@@ -17,6 +17,9 @@ export const GUIDES: GuideInfo[] = [
   { slug: 'pipedream', platform: 'Pipedream', summary: 'Add a “Send any HTTP Request” step to the end of a workflow.' },
 ];
 
+/** "What is a check?": the concept page every other page links to for a definition. */
+export const CONCEPT_SLUG = 'checks';
+
 const DOC_HOST = 'https://ping.stepcanary.com';
 
 /**

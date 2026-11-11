@@ -7,7 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-export const GUIDE_SLUGS = ['zapier', 'make', 'n8n', 'pipedream'];
+export const GUIDE_SLUGS = ['checks', 'zapier', 'make', 'n8n', 'pipedream'];
 
 export function generate() {
   const entries = GUIDE_SLUGS.map((slug) => {

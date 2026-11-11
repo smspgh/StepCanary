@@ -51,7 +51,7 @@ const reload = async (id: string) => (await getCheck(db, accountId, id))!;
 const morning = at('2026-10-16 08:01', 'America/Chicago');
 
 describe('baseline-ready email', () => {
-  it('is sent once, at the start of the working day, when learning finishes', async () => {
+  it('is sent once, at the start of the workday, when learning finishes', async () => {
     const id = await learningCheck();
     expect((await reload(id)).nextEvalAt).toBe(at('2026-10-16 08:00', 'America/Chicago')); // not midnight
 

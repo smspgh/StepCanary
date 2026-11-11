@@ -10,6 +10,10 @@ export interface SenderEnv extends EmailEnv {
 
 type FetchFn = typeof fetch;
 
+/** Reminds the reader what a "check" is, since alerts can arrive months after setup. */
+export const EMAIL_FOOTER =
+  'Why you got this: a StepCanary check is watching this automation. A check listens for a signal each time the automation runs and alerts you when the signals stop or change.';
+
 /** The HTTP request for a webhook-style channel. Pure, so the formats can be tested. */
 export function buildWebhookRequest(kind: string, url: string, alert: OutboundAlert): { url: string; init: RequestInit } {
   let payload: unknown;
@@ -49,8 +53,8 @@ export function makeSender(env: SenderEnv, fetchImpl: FetchFn = fetch): SendFn {
         {
           to: channel.config.email,
           subject: alert.subject,
-          text: `${alert.body}\n\nOpen this check: ${alert.link}`,
-          html: simpleHtml(alert.body, { url: alert.link, label: 'Open this check' }),
+          text: `${alert.body}\n\nOpen this check: ${alert.link}\n\n${EMAIL_FOOTER}`,
+          html: simpleHtml(alert.body, { url: alert.link, label: 'Open this check' }, EMAIL_FOOTER),
           idempotencyKey: alert.idempotencyKey,
         },
         fetchImpl,

@@ -65,7 +65,7 @@ describe('plain-English wording', () => {
     expect(describeExpectation(intervalCfg())).toBe('at least one ping every 1 hour, with 10 minutes of grace');
     expect(
       describeExpectation(intervalCfg({ timezone: 'Europe/London', activeWindow: { days: [1, 2, 3, 4, 5], start: 540, end: 1080 } })),
-    ).toBe('at least one ping every 1 hour, counted only during Mon–Fri, 09:00–18:00 (Europe/London), with 10 minutes of grace');
+    ).toBe('at least one ping every 1 hour, counted only during Mon–Fri, 9:00 AM–6:00 PM (Europe/London), with 10 minutes of grace');
     expect(describeExpectation(scheduleCfg('0 9 * * 1-5', 'UTC'))).toContain('"0 9 * * 1-5" (UTC), within 10 minutes');
   });
 
@@ -80,7 +80,7 @@ describe('plain-English wording', () => {
     });
     expect(msg.subject).toBe('Down: "New lead → CRM" has stopped checking in');
     expect(msg.body).toContain('at least one ping every 1 hour');
-    expect(msg.body).toContain('Tue 10 Nov 2026, 10:50');
+    expect(msg.body).toContain('Tue, Nov 10, 2026, 10:50 AM');
     expect(msg.body).toContain('1 hour 10 minutes earlier');
     expect(msg.link).toBe('https://app.test/checks/abc');
   });

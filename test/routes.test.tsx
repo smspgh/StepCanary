@@ -153,7 +153,7 @@ describe('checks', () => {
     const cookie = await signIn('pro@example.com', 'pro');
     const form = { ...checkForm, window_enabled: '1', window_days: ['1', '2', '3', '4', '5'], window_start: '09:00', window_end: '18:00' };
     const path = (await call('/checks', { form, cookie, plan: 'pro' })).headers.get('location')!.split('?')[0];
-    expect(await (await call(path, { cookie })).text()).toContain('Mon–Fri, 09:00–18:00 (Europe/London)');
+    expect(await (await call(path, { cookie })).text()).toContain('Mon–Fri, 9:00 AM–6:00 PM (Europe/London)');
     expect((await call(`${path}/edit`, { cookie })).status).toBe(200);
 
     expect((await call(path, { form: { ...checkForm, name: 'Renamed', mode: 'schedule', cron: '0 9 * * 1-5' }, cookie })).status).toBe(302);

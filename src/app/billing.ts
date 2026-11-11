@@ -63,7 +63,7 @@ export async function createCheckoutUrl(
   return (await stripe(env, 'POST', '/checkout/sessions', params, fetchImpl)).url;
 }
 
-/** Stripe's self-service page for changing plan, card or cancelling. */
+/** Stripe's self-service page for changing plan, card or canceling. */
 export async function createPortalUrl(env: BillingEnv, stripeCustomerId: string, fetchImpl: FetchFn = fetch): Promise<string> {
   return (await stripe(env, 'POST', '/billing_portal/sessions', { customer: stripeCustomerId, return_url: `${appUrl(env)}/billing` }, fetchImpl)).url;
 }
@@ -107,7 +107,7 @@ function planFromPrices(prices: string[], env: BillingEnv): Plan {
 }
 
 export interface PendingChange {
-  /** The subscription has been cancelled and ends at this time (epoch ms). */
+  /** The subscription has been canceled and ends at this time (epoch ms). */
   cancelAt: number | null;
   /** A plan switch Stripe has scheduled for later (e.g. a downgrade at the end of the period). */
   changeTo: Plan | null;
@@ -235,7 +235,7 @@ export async function handleStripeEvent(db: Db, env: BillingEnv, event: any, now
   const accountId = await accountIdFor(db, sub.metadata?.account_id ?? accountHint, customerId);
   if (!accountId) return 'unknown_account';
 
-  // An older, cancelled subscription must not overwrite a newer active one.
+  // An older, canceled subscription must not overwrite a newer active one.
   const current = (await db.query('SELECT stripe_subscription_id FROM accounts WHERE id = $1', [accountId]))[0]?.stripe_subscription_id;
   const plan = planFromSubscription(sub, env);
   if (plan === 'free' && current && current !== sub.id) return 'stale_subscription';

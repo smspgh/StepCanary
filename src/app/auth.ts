@@ -69,7 +69,7 @@ export interface Account {
   email: string;
   plan: string;
   stripeCustomerId?: string | null;
-  /** The subscription is cancelled and the paid plan ends at this time (epoch ms). */
+  /** The subscription is canceled and the paid plan ends at this time (epoch ms). */
   planCancelAt?: number | null;
   /** A plan switch scheduled for later, e.g. a downgrade at the end of the paid period. */
   planChangeTo?: string | null;

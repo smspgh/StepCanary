@@ -1,5 +1,5 @@
 // Pure evaluation logic: no I/O, no clock reads. Everything takes explicit instants (epoch ms),
-// which is what makes timezone, DST, active-window and monitoring-gap behaviour unit-testable.
+// which is what makes timezone, DST, active-window and monitoring-gap behavior unit-testable.
 
 import { Cron } from 'croner';
 import type { PingKind } from '../shared/messages';

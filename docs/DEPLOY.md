@@ -116,7 +116,7 @@ bad deploy with `npx wrangler rollback -c wrangler.app.jsonc` (or `wrangler.inge
 
 ## Verification status
 
-Verified in production on 10 Nov 2026 (app.stepcanary.com / ping.stepcanary.com): deploy of both
+Verified in production on Nov 10, 2026 (app.stepcanary.com / ping.stepcanary.com): deploy of both
 Workers, Hyperdrive to Neon, custom domains, magic-link sign-in, first-ping listener, one "Down"
 email, one "Recovered" email via Resend, and the Healthchecks.io heartbeat.
 

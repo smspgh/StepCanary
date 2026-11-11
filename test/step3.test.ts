@@ -1,4 +1,4 @@
-// Step 3 behaviour against a real Postgres (PGlite): runaway loops, payload drift, volume
+// Step 3 behavior against a real Postgres (PGlite): runaway loops, payload drift, volume
 // baselines, alert channels, weekly summaries and billing.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -308,7 +308,7 @@ describe('volume baseline, end to end', () => {
     expect(sent).toHaveLength(1);
     expect(sent[0].subject).toBe('Down: "Orders → Sheet" volume has dropped');
     expect(sent[0].body).toContain('usually about 40 pings on a Friday');
-    expect(sent[0].body).toContain('only 3 pings arrived Fri 16 Oct');
+    expect(sent[0].body).toContain('only 3 pings arrived Fri, Oct 16');
 
     // A single ping does not mean volume is back.
     await consume([msg(check.token, at('2026-10-17 09:00'))], at('2026-10-17 09:00'));
@@ -469,7 +469,7 @@ describe('weekly client health summary', () => {
         { name: 'Not set up yet', status: 'new', pings: 0, downtimeMs: 0, incidents: 0, monitoredSince: null },
       ],
     });
-    expect(email.subject).toBe('Weekly automation health: Acme Dental (2 Nov – 8 Nov 2026)');
+    expect(email.subject).toBe('Weekly automation health: Acme Dental (Nov 2 – Nov 8, 2026)');
     expect(email.text).toContain('3 automations monitored, 1,252 successful runs, 2 incidents.');
     expect(email.text).toContain('- New patient form: Healthy. 1,240 runs, uptime 100%, incidents 0.');
     expect(email.text).toContain('- Invoice sync: Down. 12 runs, uptime 90.0%, incidents 2.');
@@ -626,7 +626,7 @@ describe('billing', () => {
     expect(await handleStripeEvent(db, env, { type: 'customer.subscription.updated', data: { object: { id: 'sub_9' } } }, T0, fakeFetch)).toBe('unknown_account');
   });
 
-  it('ignores a late "cancelled" event for an old subscription after the customer resubscribed', async () => {
+  it('ignores a late "canceled" event for an old subscription after the customer resubscribed', async () => {
     await db.query(`UPDATE accounts SET plan = 'pro', stripe_customer_id = 'cus_1', stripe_subscription_id = 'sub_new' WHERE id = $1`, [accountId]);
     const old = { ...sub('canceled', 'price_pro'), id: 'sub_old' };
     const fakeFetch = (async () => new Response(JSON.stringify(old))) as unknown as typeof fetch;

@@ -1,4 +1,4 @@
-// A cancelled or downgraded subscription keeps its paid plan until the period ends, and the
+// A canceled or downgraded subscription keeps its paid plan until the period ends, and the
 // Plan page says so.
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -71,7 +71,7 @@ describe('what Stripe has scheduled for a subscription', () => {
     expect(calls).toEqual(['https://api.stripe.com/v1/subscription_schedules/sub_sched_1']);
   });
 
-  it('nothing if the schedule cannot be read or keeps the same plan, and nothing once cancelled', async () => {
+  it('nothing if the schedule cannot be read or keeps the same plan, and nothing once canceled', async () => {
     const missing = fakeStripe({ subscription: null });
     expect((await pendingChange(env, sub('price_agency', { schedule: 'sub_sched_x' }), NOW, missing.fetchImpl)).changeTo).toBeNull();
     const same = fakeStripe({ subscription: null, schedule: { phases: [{ start_date: sec(PERIOD_END), items: [{ price: 'price_agency' }] }] } });
@@ -129,29 +129,29 @@ describe('the Plan page', () => {
     await handleStripeEvent(db, env, event(active), NOW, stripe.fetchImpl);
     let page = await billingPage();
     expect(page).toContain('You are on the <strong>Agency</strong> plan');
-    expect(page).not.toContain('Your subscription is cancelled');
+    expect(page).not.toContain('Your subscription is canceled');
 
     // Customer cancels in the portal: still Agency, with an end date.
     stripe.calls.length = 0;
-    const cancelled = { ...active, cancel_at_period_end: true, cancel_at: sec(PERIOD_END) };
-    const cancelStripe = fakeStripe({ subscription: cancelled });
-    expect(await handleStripeEvent(db, env, event(cancelled), NOW, cancelStripe.fetchImpl)).toBe('plan=agency cancels_later');
+    const canceled = { ...active, cancel_at_period_end: true, cancel_at: sec(PERIOD_END) };
+    const cancelStripe = fakeStripe({ subscription: canceled });
+    expect(await handleStripeEvent(db, env, event(canceled), NOW, cancelStripe.fetchImpl)).toBe('plan=agency cancels_later');
     page = await billingPage();
     expect(page).toContain('You are on the <strong>Agency</strong> plan');
-    expect(page).toContain('Your subscription is cancelled');
+    expect(page).toContain('Your subscription is canceled');
     expect(page).toContain('December 11, 2026');
     expect(page).toContain('Manage billing');
 
     // Customer changes their mind and keeps the plan.
     await handleStripeEvent(db, env, event(active), NOW, fakeStripe({ subscription: active }).fetchImpl);
-    expect(await billingPage()).not.toContain('Your subscription is cancelled');
+    expect(await billingPage()).not.toContain('Your subscription is canceled');
 
-    // The period ends: Stripe reports the subscription as cancelled, and the account is Free.
+    // The period ends: Stripe reports the subscription as canceled, and the account is Free.
     const ended = { ...active, status: 'canceled' };
     await handleStripeEvent(db, env, { type: 'customer.subscription.deleted', data: { object: ended } }, PERIOD_END, fakeStripe({ subscription: ended }).fetchImpl);
     page = await billingPage();
     expect(page).toContain('You are on the <strong>Free</strong> plan');
-    expect(page).not.toContain('Your subscription is cancelled');
+    expect(page).not.toContain('Your subscription is canceled');
     expect((await db.query('SELECT plan_cancel_at, plan_change_to FROM accounts'))[0]).toEqual({ plan_cancel_at: null, plan_change_to: null });
   });
 

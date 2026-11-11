@@ -3,7 +3,10 @@
 **Time:** about 3 minutes. **You need:** a StepCanary check (its ping URL) and a Make scenario.
 The HTTP app is available on every Make plan. Each ping uses one operation (credit) per run.
 
-The idea: add one last module to your scenario that tells StepCanary "I ran". If those pings
+**New to StepCanary?** A check is our watch on one automation: it listens for a signal each time the
+automation runs and alerts you when the signals stop. [What is a check?](/guides/checks)
+
+The idea: add one last module to your scenario that tells StepCanary "I ran." If those pings
 stop arriving, StepCanary emails you.
 
 ## 1. Create the check
@@ -37,7 +40,7 @@ stop arriving, StepCanary emails you.
 `[ Screenshot: HTTP "Make a request" module with URL, POST, Raw, JSON and the request content ]`
 
 Field names vary slightly between versions of Make's HTTP app. If yours shows "Body content
-type" and "Body input method", choose `application/json` and a raw JSON body.
+type" and "Body input method," choose `application/json` and a raw JSON body.
 
 ## 4. Test it
 
@@ -76,7 +79,7 @@ To be told when a mapped field goes blank or missing:
    ```
 
    Put text values in quotes and leave numbers unquoted.
-2. In StepCanary, edit the check and tick **"Alert me when the data it sends changes shape"**.
+2. In StepCanary, edit the check and turn on **"Alert me when the data it sends changes shape"**.
 
 StepCanary only looks at field names and whether each is filled in, blank or a different type.
 It never stores the values. If a mapped text value contains a quote or line break the JSON can
@@ -85,7 +88,7 @@ break; StepCanary still counts the ping and shows a "Malformed payload" note. To
 
 `[ Screenshot: Request content with mapped fields ]`
 
-## Report failures straight away (optional)
+## Report failures right away (optional)
 
 1. Right-click the module most likely to fail and choose **Add error handler**.
 2. On the error route, add another **HTTP → Make a request** module with the same settings, but

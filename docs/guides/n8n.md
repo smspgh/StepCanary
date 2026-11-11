@@ -3,7 +3,10 @@
 **Time:** about 3 minutes. **You need:** a StepCanary check (its ping URL) and an n8n workflow,
 on n8n Cloud or self-hosted. A self-hosted instance must be able to make outbound HTTPS requests.
 
-The idea: add one last node to your workflow that tells StepCanary "I ran". If those pings stop
+**New to StepCanary?** A check is our watch on one automation: it listens for a signal each time the
+automation runs and alerts you when the signals stop. [What is a check?](/guides/checks)
+
+The idea: add one last node to your workflow that tells StepCanary "I ran." If those pings stop
 arriving, StepCanary emails you.
 
 ## 1. Create the check
@@ -78,7 +81,7 @@ To be told when a field goes blank or missing:
 
 1. Change **Specify Body** to `Using Fields Below` and add one row per field you care about,
    with an expression as the value, e.g. name `email`, value `{{ $json.email }}`.
-2. In StepCanary, edit the check and tick **"Alert me when the data it sends changes shape"**.
+2. In StepCanary, edit the check and turn on **"Alert me when the data it sends changes shape"**.
 
 Using fields (not hand-written JSON) lets n8n escape quotes and line breaks for you.
 StepCanary only looks at field names and whether each is filled in, blank or a different type.
@@ -86,7 +89,7 @@ It never stores the values.
 
 `[ Screenshot: Body parameters with mapped fields ]`
 
-## Report failures straight away (optional)
+## Report failures right away (optional)
 
 n8n can run a separate workflow whenever this one fails.
 

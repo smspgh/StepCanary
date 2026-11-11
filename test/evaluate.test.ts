@@ -104,7 +104,7 @@ describe('schedule mode', () => {
     expect(iso(computeDeadlines(cfg, d.lateAt).lateAt)).toBe('2026-03-09T06:30:00.000Z');
   });
 
-  it('expects a time in the repeated autumn hour only once (New York)', () => {
+  it('expects a time in the repeated fall hour only once (New York)', () => {
     const cfg = scheduleCfg('30 1 * * *', 'America/New_York');
     // 01:30 happens twice on 1 Nov 2026. One ping satisfies the day.
     const first = computeDeadlines(cfg, at('2026-10-31 01:31', 'America/New_York')).lateAt;

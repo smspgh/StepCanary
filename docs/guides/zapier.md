@@ -4,7 +4,10 @@
 that includes the **Webhooks by Zapier** app. Webhooks by Zapier is a premium app, so it is not
 available on Zapier's free plan.
 
-The idea: add one last step to your Zap that tells StepCanary "I ran". If those pings stop
+**New to StepCanary?** A check is our watch on one automation: it listens for a signal each time the
+automation runs and alerts you when the signals stop. [What is a check?](/guides/checks)
+
+The idea: add one last step to your Zap that tells StepCanary "I ran." If those pings stop
 arriving, StepCanary emails you.
 
 ## 1. Create the check
@@ -53,9 +56,9 @@ while you are still setting up.
 
 | Your Zap… | Use |
 |---|---|
-| Runs on a schedule (e.g. every morning at 9) | **Schedule** mode with the same times, and 15-30 minutes of grace. Zapier's schedule trigger can start a few minutes late. |
+| Runs on a schedule (e.g. every morning at 9 AM) | **Schedule** mode with the same times, and 15-30 minutes of grace. Zapier's schedule trigger can start a few minutes late. |
 | Polls for new items (most Zapier triggers) and normally finds something every hour or so | **Interval** mode. Pick an interval comfortably longer than the longest normal quiet spell. |
-| Only gets activity in business hours (lead forms, bookings) | **Interval** mode with an **active window**, e.g. Mon-Fri 09:00-18:00, so nights and weekends never alert. |
+| Only gets activity in business hours (lead forms, bookings) | **Interval** mode with an **active window**, e.g. Mon–Fri, 9:00 AM–6:00 PM, so nights and weekends never alert. |
 | Runs dozens or hundreds of times a day | **Volume** mode: StepCanary learns what is normal for each weekday and tells you when it drops. |
 
 Remember that the ping only happens when the Zap **runs to the end**. A polling Zap that finds
@@ -67,14 +70,14 @@ Zaps often keep running while a mapped field quietly goes blank. To catch that:
 
 1. In the **Data** section of the webhook step, add a row for each field you care about:
    type a name on the left (e.g. `email`) and map the real field from an earlier step on the right.
-2. In StepCanary, edit the check and tick **"Alert me when the data it sends changes shape"**.
+2. In StepCanary, edit the check and turn on **"Alert me when the data it sends changes shape"**.
 
 StepCanary only looks at field names and whether each one is filled in, blank, or a different
 type. It never stores the values.
 
 `[ Screenshot: Data section of the webhook step with two mapped fields ]`
 
-## Report failures straight away (optional)
+## Report failures right away (optional)
 
 By default you find out about a failure when the pings stop. If you use Zapier's per-step
 **error handler** (on plans that have it), add a Webhooks by Zapier **POST** step on the error
@@ -89,4 +92,4 @@ path with the URL `…/p/your-token/fail`. StepCanary then alerts immediately in
 | "Malformed payload" warning on the check | A mapped value contains a character that broke the JSON. The ping still counted. Setting Payload Type to `json` and using the Data rows (not a hand-typed body) avoids this. |
 | Alerts when the Zap is fine | The interval is shorter than a normal quiet spell. Lengthen it, add an active window, or switch to Volume mode. |
 | "Runaway loop detected" | The Zap is running more than 60 times a minute. Check for a Zap that triggers itself. |
-| Filters or Paths in the Zap | Steps after a Filter that stops, or on a Path that was not taken, do not run. Put the ping step where it will run for every case you count as "working". |
+| Filters or Paths in the Zap | Steps after a Filter that stops, or on a Path that was not taken, do not run. Put the ping step where it will run for every case you count as "working." |

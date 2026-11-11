@@ -40,7 +40,7 @@ users). Support time is separate and depends on how many customers you have.
 |---|---|---|
 | Domain renewal | Confirm auto-renew is on for `stepcanary.com` and the card on file is valid. | 5 min |
 | Runtime update | Raise `compatibility_date` in both `wrangler.*.jsonc` files to a recent date, run tests, deploy to both Workers, do the smoke test. | 45 min |
-| Major dependency upgrades | Hono, Wrangler, postgres.js, Luxon, croner major versions: read the changelogs, upgrade one at a time, run tests. Pay special attention to croner (schedule and DST behaviour is pinned by tests in `test/evaluate.test.ts`). | 60 min |
+| Major dependency upgrades | Hono, Wrangler, postgres.js, Luxon, croner major versions: read the changelogs, upgrade one at a time, run tests. Pay special attention to croner (schedule and DST behavior is pinned by tests in `test/evaluate.test.ts`). | 60 min |
 | Rotate API keys | New Resend API key and Stripe restricted key; update with `wrangler secret put`. **Never rotate `TOKEN_SECRET` or `CHANNEL_KEY`.** | 15 min |
 
 ## When something changes

@@ -71,7 +71,7 @@ describe('guide content', () => {
   });
 
   it('renders all four guides completely', () => {
-    expect(GUIDES.map((g) => g.slug)).toEqual(Object.keys(GUIDE_MARKDOWN));
+    expect(['checks', ...GUIDES.map((g) => g.slug)]).toEqual(Object.keys(GUIDE_MARKDOWN));
     for (const g of GUIDES) {
       const guide = renderGuide(g.slug, 'https://ping.stepcanary.com')!;
       expect(guide.title).toContain(g.platform === 'Zapier' ? 'Zap' : g.platform);

@@ -7,7 +7,7 @@ the rest can follow in the first weeks.
 
 - [ ] **(blocker)** Step 3 is deployed (`docs/STEP3.md`, Part A): migrations applied, `CHANNEL_KEY` set, both Workers deployed.
 - [ ] **(blocker)** Stripe is live (`docs/STEP3.md`, Part B): live prices, live webhook, live keys, customer portal configured.
-- [ ] **(blocker)** A real purchase works end to end in live mode with your own card, including switching plan and cancelling. Refund yourself afterwards.
+- [ ] **(blocker)** A real purchase works end to end in live mode with your own card, including switching plan and canceling. Refund yourself afterward.
 - [ ] **(blocker)** `TOKEN_SECRET` and `CHANNEL_KEY` are in your password manager. Neither can ever be changed or recovered.
 - [ ] Healthchecks.io check is green and alerts go to your phone, not only email.
 - [ ] UptimeRobot monitors `ping.stepcanary.com/healthz` and `app.stepcanary.com/healthz` and both are green.
@@ -29,7 +29,7 @@ this once per platform with a real account, and fix any wording that does not ma
 ## 3. Alerts arrive
 
 - [ ] **(blocker)** Resend shows `stepcanary.com` as verified (SPF and DKIM).
-- [ ] **(blocker)** Add a DMARC record for `stepcanary.com` (start with `v=DMARC1; p=none; rua=mailto:you@…`). Gmail and Yahoo penalise senders without one.
+- [ ] **(blocker)** Add a DMARC record for `stepcanary.com` (start with `v=DMARC1; p=none; rua=mailto:you@…`). Gmail and Yahoo penalize senders without one.
 - [ ] Send yourself a sign-in link and a "Down" alert at Gmail, Outlook and one company address. None lands in spam.
 - [ ] Resend plan covers expected volume (free tier: 3,000 emails a month, 100 a day). Move to a paid tier or Postmark before you approach it.
 - [ ] Add a Slack channel and a Discord channel to your own account and use **Send test** on each.

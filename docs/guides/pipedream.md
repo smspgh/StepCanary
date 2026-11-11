@@ -3,7 +3,10 @@
 **Time:** about 3 minutes. **You need:** a StepCanary check (its ping URL) and a Pipedream
 workflow.
 
-The idea: add one last step to your workflow that tells StepCanary "I ran". If those pings stop
+**New to StepCanary?** A check is our watch on one automation: it listens for a signal each time the
+automation runs and alerts you when the signals stop. [What is a check?](/guides/checks)
+
+The idea: add one last step to your workflow that tells StepCanary "I ran." If those pings stop
 arriving, StepCanary emails you.
 
 ## 1. Create the check
@@ -70,7 +73,7 @@ StepCanary sends no alerts until the first ping has arrived.
 
 If an earlier step ends the workflow early (for example with `$.flow.exit()` or a filter step),
 later steps do not run and no ping is sent for that event. Place the ping step where it runs for
-every case you count as "working".
+every case you count as "working."
 
 ## Watch the data too (optional, Pro)
 
@@ -85,13 +88,13 @@ body: JSON.stringify({
 }),
 ```
 
-Then edit the check in StepCanary and tick **"Alert me when the data it sends changes shape"**.
+Then edit the check in StepCanary and turn on **"Alert me when the data it sends changes shape"**.
 StepCanary only looks at field names and whether each is filled in, blank or a different type.
 It never stores the values.
 
 `[ Screenshot: HTTP step body with mapped fields ]`
 
-## Report failures straight away (optional)
+## Report failures right away (optional)
 
 In a Node.js step, wrap the risky part of the workflow and report the failure before rethrowing:
 

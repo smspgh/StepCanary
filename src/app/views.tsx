@@ -51,6 +51,8 @@ dl{display:grid;grid-template-columns:170px 1fr;gap:6px 12px;margin:10px 0 0}dt{
 .spark rect{fill:#9db7e8}.days label{display:inline-block;font-weight:400;margin:0 10px 0 0}
 .plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.plans .card{margin:0}.plans ul{padding-left:18px;margin:8px 0 14px}
 .price{font-size:22px;font-weight:700}
+.term{color:inherit;border-bottom:1px dotted currentColor;cursor:help}.term:hover{text-decoration:none;color:var(--accent)}
+.explain{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:14px 0}.explain div{background:#f6f7f9;border-radius:8px;padding:12px}.explain p{margin:6px 0 0;color:#3d4756;font-size:14px}
 main.wide{max-width:none;padding:0}
 section{padding:56px 16px}section.band{background:#eef1f5}.inner{max-width:960px;margin:0 auto}.inner.narrow{max-width:720px}
 section h2{font-size:24px;margin:0 0 22px;text-align:center}
@@ -175,7 +177,29 @@ const DateOnly: FC<{ at: number }> = ({ at }) => (
   </time>
 );
 
-const Status: FC<{ status: CheckStatus }> = ({ status }) => <span class={`badge ${status}`}>{status}</span>;
+export const CHECK_DEFINITION =
+  'A check is StepCanary’s watch on one automation. The automation pings the check each time it runs. If the pings stop, slow down, or start carrying blank data, the check alerts you.';
+
+/** The word "check" with its definition one hover (or one click) away. */
+export const CheckTerm: FC<{ children?: Child }> = ({ children }) => (
+  <a class="term" href="/guides/checks" title={CHECK_DEFINITION}>
+    {children ?? 'check'}
+  </a>
+);
+
+const STATUS_HELP: Record<CheckStatus, string> = {
+  new: 'New: waiting for the first ping. A check never alerts in this state.',
+  up: 'Up: pings are arriving as expected.',
+  late: 'Late: a ping is overdue but still inside the grace period. No alert yet.',
+  down: 'Down: the grace period ran out, or the automation reported a failure. You have been alerted.',
+  paused: 'Paused: switched off. It keeps its history and sends no alerts.',
+};
+
+const Status: FC<{ status: CheckStatus }> = ({ status }) => (
+  <span class={`badge ${status}`} title={STATUS_HELP[status]}>
+    {status}
+  </span>
+);
 
 export const Sparkline: FC<{ series?: number[] }> = ({ series }) => {
   const data = series ?? [];
@@ -260,16 +284,17 @@ const LANDING_DESCRIPTION =
 
 const CATCHES: [string, string][] = [
   ['It stopped running', 'The Zap was switched off, a connection expired, or the trigger quietly stopped firing. You hear about it within minutes, not when a client asks where their leads went.'],
-  ['It runs, but far less than usual', 'StepCanary learns what a normal Tuesday looks like. “Usually about 40 runs, only 3 yesterday” lands in your inbox at 8am.'],
+  ['It runs, but far less than usual', 'StepCanary learns what a normal Tuesday looks like. “Usually about 40 runs, only 3 yesterday” lands in your inbox at 8 AM.'],
   ['It runs, but the data is blank', 'A mapped field starts arriving empty after someone renames a form question. We notice the field went blank, without ever storing what was in it.'],
   ['It is stuck in a loop', 'A workflow that triggers itself can burn a month of tasks in an hour. We spot the flood and tell you once, not five hundred times.'],
 ];
 
 const FAQ: [string, string][] = [
-  ['Do you need access to my Zapier or Make account?', 'No. There is nothing to connect or authorise. You add one ordinary HTTP step to the automation, pointing at a private URL we give you. Remove the step and we are gone.'],
+  ['What is a check?', 'A check is StepCanary’s watch on one automation. Your automation sends the check a tiny signal (a “ping”) every time it finishes. The check knows how often that should happen, and alerts you when the pings stop, slow down, or start carrying blank data. You create one check for each Zap, scenario, or workflow you want watched.'],
+  ['Do you need access to my Zapier or Make account?', 'No. There is nothing to connect or authorize. You add one ordinary HTTP step to the automation, pointing at a private URL we give you. Remove the step and we are gone.'],
   ['What do you store?', 'Your email address, your check settings, and when each ping arrived. If you turn on payload monitoring we keep the names and types of the fields (“email: text”), never the values. Payments are handled by Stripe.'],
   ['Will it wake me up for nothing?', 'It is built not to. Business-hours automations can be given active hours so quiet nights and weekends never alert. Volume checks are compared by day of the week. And if we have a problem on our side, we show a “monitoring gap” instead of telling you your automation is down.'],
-  ['Does it work on Zapier’s free plan?', 'The step uses “Webhooks by Zapier”, which Zapier includes on its paid plans. Make, n8n and Pipedream include HTTP steps on every plan.'],
+  ['Does it work on Zapier’s free plan?', 'The step uses “Webhooks by Zapier,” which Zapier includes on its paid plans. Make, n8n and Pipedream include HTTP steps on every plan.'],
   ['What happens if I move to a smaller plan?', 'Nothing is deleted. Checks over the smaller plan’s limit are paused, starting with the ones that pinged least recently, and resume if you upgrade again.'],
   ['Can I cancel?', 'Any time, from the Plan page. You keep what you paid for until the end of the billing period.'],
 ];
@@ -308,11 +333,15 @@ export const LandingPage: FC = () => (
     <section id="how">
       <div class="inner">
         <h2>How it works</h2>
+        <p class="lede" style="text-align:center">
+          You create a <CheckTerm /> for each automation you care about. A check is our watch on that one automation: it listens for a
+          tiny signal every time the automation runs, and speaks up when the signals stop.
+        </p>
         <div class="grid three">
           <div class="step">
             <span class="num">1</span>
             <strong>Create a check</strong>
-            <p>Name it after the automation and say how often it should run, or let us learn that for you.</p>
+            <p>One check per automation. Name it after the automation and say how often it should run, or let us learn that for you.</p>
           </div>
           <div class="step">
             <span class="num">2</span>
@@ -332,10 +361,10 @@ export const LandingPage: FC = () => (
           </div>
           <p>Your automation “New lead → CRM” has stopped checking in.</p>
           <p>
-            What we expected: at least one ping every 2 hours, counted only during Mon–Fri, 09:00–18:00 (America/New_York), with 15 minutes
+            What we expected: at least one ping every 2 hours, counted only during Mon–Fri, 9:00 AM–6:00 PM (America/New_York), with 15 minutes
             of grace.
             <br />
-            What happened: nothing has arrived in time. The last successful ping arrived Tue 10 Nov 2026, 10:42 EST (2 hours 15 minutes
+            What happened: nothing has arrived in time. The last successful ping arrived Tue, Nov 10, 2026, 10:42 AM EST (2 hours 15 minutes
             earlier).
           </p>
           <p class="muted">
@@ -362,7 +391,7 @@ export const LandingPage: FC = () => (
           <div class="card">
             <strong>Honest about our own bad days</strong>
             <p>
-              We monitor ourselves every minute. If our side has a problem, you see “monitoring gap”, not a false “your automation is down”.
+              We monitor ourselves every minute. If our side has a problem, you see “monitoring gap,” not a false “your automation is down.”
             </p>
           </div>
           <div class="card">
@@ -436,7 +465,11 @@ export const GuidesIndexPage: FC<{ account?: Account | null; guides: { slug: str
 }) => (
   <Layout title="Setup guides" account={account} nav="guides" description="Step-by-step guides for monitoring Zapier, Make, n8n and Pipedream automations with StepCanary.">
     <h1>Setup guides</h1>
-    <p class="muted">Pick the tool your automation runs in. Each guide takes about three minutes.</p>
+    <a class="card tile" href="/guides/checks">
+      <strong>Start here: What is a check?</strong>
+      <p>What a check does, why you need one, and a quick reference for every term and status.</p>
+    </a>
+    <p class="muted">Then pick the tool your automation runs in. Each guide takes about three minutes.</p>
     <div class="grid">
       {guides.map((g) => (
         <a class="card tile" href={`/guides/${g.slug}${checkId ? `?check=${checkId}` : ''}`}>
@@ -448,15 +481,21 @@ export const GuidesIndexPage: FC<{ account?: Account | null; guides: { slug: str
   </Layout>
 );
 
-export const GuidePage: FC<{ account?: Account | null; title: string; html: string; personalised: boolean }> = ({ account, title, html, personalised }) => (
+export const GuidePage: FC<{ account?: Account | null; title: string; html: string; personalized: boolean; concept?: boolean }> = ({
+  account,
+  title,
+  html,
+  personalized,
+  concept,
+}) => (
   <Layout title={title} account={account} nav="guides" description={`${title}: a step-by-step guide.`}>
     <p class="small">
       <a href="/guides">← All guides</a>
     </p>
-    {personalised ? <div class="banner ok">The ping URL in this guide is the real one for your check, ready to copy.</div> : null}
-    {!account ? (
+    {personalized ? <div class="banner ok">The ping URL in this guide is the real one for your check, ready to copy.</div> : null}
+    {!account && !concept ? (
       <div class="banner">
-        You need a StepCanary check to follow this guide. <a href="/login">Create one free</a> – it takes a minute.
+        You need a StepCanary check to follow this guide. <a href="/login">Create one free</a>. It takes a minute.
       </div>
     ) : null}
     <article class="card guide" dangerouslySetInnerHTML={{ __html: html }} />
@@ -573,10 +612,36 @@ export const ChecksPage: FC<{
         <span class="spacer" style="flex:1" />
         <a class="btn primary" href="/checks/new">New check</a>
       </div>
+      <p class="muted" style="margin:-6px 0 16px">
+        Each <CheckTerm /> watches one automation and alerts you when it stops, slows down, or starts sending blank data.{' '}
+        <a href="/guides/checks">What is a check?</a>
+      </p>
       <GapBanner gaps={gaps} />
       {checks.length === 0 ? (
         <div class="card">
-          No checks yet. <a href="/checks/new">Create your first check</a> – it takes about two minutes.
+          <h2 style="margin-top:0">Start by creating your first check</h2>
+          <p>
+            A <strong>check</strong> is StepCanary’s watch on one of your automations. Automation tools tell you when a step fails with an
+            error. They don’t tell you when an automation goes quiet: switched off, disconnected, or running with blank data. A check does.
+          </p>
+          <div class="explain">
+            <div>
+              <strong>1. It gives you a private URL</strong>
+              <p>You paste it into one HTTP step at the end of your Zap, scenario, or workflow.</p>
+            </div>
+            <div>
+              <strong>2. Your automation pings it</strong>
+              <p>Every run sends a tiny “I just ran” signal. We never sign in to your tools or store your data.</p>
+            </div>
+            <div>
+              <strong>3. It alerts you when that stops</strong>
+              <p>If the pings stop, slow down, or change, you get a plain-English email, Slack, or Discord message.</p>
+            </div>
+          </div>
+          <p>
+            <a class="btn primary" href="/checks/new">Create your first check</a> <a class="btn" href="/guides/checks">Learn more about checks</a>
+          </p>
+          <p class="hint">One check per automation. It takes about two minutes.</p>
         </div>
       ) : (
         groups
@@ -628,10 +693,16 @@ export const CheckFormPage: FC<{
   const [gv, gu] = splitDuration(cfg?.graceSeconds ?? null, [10, 'minutes']);
   const mode = cfg?.mode ?? 'interval';
   const w = cfg?.activeWindow ?? null;
-  const pro = (ok: boolean) => (ok ? '' : ' – Pro');
+  const pro = (ok: boolean) => (ok ? '' : ' (Pro)');
   return (
     <Layout title={check ? `Edit ${check.name}` : 'New check'} account={account} nav="checks">
       <h1>{check ? 'Edit check' : 'New check'}</h1>
+      {check ? null : (
+        <div class="banner ok">
+          <strong>A check watches one automation.</strong> Tell us how often the automation should run. We’ll give you a private URL to
+          add as its last step, and alert you if it stops checking in. <a href="/guides/checks">What is a check?</a>
+        </div>
+      )}
       <form class="card" method="post" action={check ? `/checks/${check.id}` : '/checks'}>
         <Errors errors={errors} />
         <label for="name">Which automation is this?</label>
@@ -676,7 +747,7 @@ export const CheckFormPage: FC<{
           <label for="cron">Schedule (cron format)</label>
           <input id="cron" name="cron" type="text" value={cfg?.cron ?? ''} placeholder="0 9 * * 1-5" />
           <div class="hint">
-            Five fields: minute, hour, day of month, month, day of week. <code>0 9 * * 1-5</code> means 09:00 on weekdays.
+            Five fields: minute, hour, day of month, month, day of week. <code>0 9 * * 1-5</code> means 9:00 AM on weekdays.
           </div>
         </div>
 
@@ -876,16 +947,16 @@ const VolumePanel: FC<{ check: Check; now: number }> = ({ check, now }) => {
   if (check.baselineStatus === 'ready' && b) {
     return (
       <div class="card">
-        <h2 style="margin-top:0">Volume baseline – ready for you to review</h2>
+        <h2 style="margin-top:0">Volume baseline: ready for you to review</h2>
         <p>
           Here is what we learned from {b.days} days of pings. If it looks right, switch alerts on. We will tell you when a day’s total falls
           below {pct}% of what is typical for that day{b.granularity === 'hourly' ? ' (this check is busy enough that we also compare hour by hour)' : ''}.
-          {b.granularity === 'daily' ? ` Each day is checked at 08:00 the next morning (${check.cfg.timezone}).` : ''}
+          {b.granularity === 'daily' ? ` Each day is checked at 8:00 AM the next morning (${check.cfg.timezone}).` : ''}
         </p>
         {table}
         <p style="margin-top:14px">
           <form class="inline" method="post" action={`/checks/${check.id}/baseline/enable`}>
-            <button class="btn primary" type="submit">Looks right – turn on volume alerts</button>
+            <button class="btn primary" type="submit">Looks right. Turn on volume alerts</button>
           </form>{' '}
           {relearn}
         </p>
@@ -898,7 +969,7 @@ const VolumePanel: FC<{ check: Check; now: number }> = ({ check, now }) => {
         <h2 style="margin-top:0">Volume baseline</h2>
         <p>
           Volume alerts are <strong>on</strong>: we alert when {b.granularity === 'hourly' ? 'an hour' : 'a day'} falls below {pct}% of normal.
-          {b.granularity === 'daily' ? ` Each day is checked at 08:00 the next morning (${check.cfg.timezone}).` : ''}
+          {b.granularity === 'daily' ? ` Each day is checked at 8:00 AM the next morning (${check.cfg.timezone}).` : ''}
         </p>
         {table}
         <p style="margin-top:14px">{relearn}</p>
@@ -1010,7 +1081,7 @@ export const CheckPage: FC<{
       </div>
 
       {notice ? <div class="banner ok">{notice}</div> : null}
-      {created ? <div class="banner">Check created. Now add the ping step to your automation – this page updates by itself when the first ping arrives.</div> : null}
+      {created ? <div class="banner">Check created. Now add the ping step to your automation. This page updates by itself when the first ping arrives.</div> : null}
       {why ? <div class="banner">{why}</div> : null}
       {isLooping(check, now) ? (
         <div class="banner">
@@ -1033,7 +1104,9 @@ export const CheckPage: FC<{
           <span class="url">{pingUrl}</span>
           <button class="btn" type="button" data-copy={pingUrl}>Copy</button>
         </div>
-        <p class="hint">We expect {describeExpectation(check.cfg)}.</p>
+        <p class="hint">
+          This <CheckTerm /> is watching one automation. We expect {describeExpectation(check.cfg)}.
+        </p>
         <div id="listener" class={connected ? 'listen ok' : 'listen'} data-url={`/checks/${check.id}/listen`} data-connected={connected ? '1' : '0'} style="margin-top:12px">
           {connected ? (
             <>
@@ -1096,7 +1169,7 @@ export const CheckPage: FC<{
                     {i.resolvedAt ? (
                       `${i.kind === 'down' ? 'recovered' : 'closed'} after ${formatDuration((i.resolvedAt - i.openedAt) / 1000)}`
                     ) : (
-                      <span class={`badge ${i.kind === 'down' ? 'down' : 'note'}`}>{i.kind === 'down' ? 'ongoing' : 'needs a look'}</span>
+                      <span class={`badge ${i.kind === 'down' ? 'down' : 'note'}`}>{i.kind === 'down' ? 'ongoing' : 'needs review'}</span>
                     )}
                   </td>
                 </tr>
@@ -1167,7 +1240,7 @@ export const ChannelsPage: FC<{ account: Account; limits: PlanLimits; channels: 
           <label for="churl">Webhook URL</label>
           <input id="churl" name="url" type="url" required placeholder="https://hooks.slack.com/services/…" />
           <div class="hint">
-            Stored encrypted and never shown again. A new channel is added to all your existing checks; you can untick it per check.
+            Stored encrypted and never shown again. A new channel is added to all your existing checks; you can turn it off for individual checks.
           </div>
           <p>
             <button class="btn primary" type="submit">Add channel</button>
@@ -1186,7 +1259,7 @@ export const FoldersPage: FC<{ account: Account; folders: Folder[]; errors?: str
   <Layout title="Clients" account={account} nav="folders">
     <h1>Client folders</h1>
     <p class="muted">
-      Group checks by client. Every Monday we email you one health summary per folder – total runs, uptime and incidents – that you can
+      Group checks by client. Every Monday we email you one health summary per folder (total runs, uptime and incidents) that you can
       forward to the client as proof of maintenance.
     </p>
     <div class="card" style="padding:4px 12px">
@@ -1248,11 +1321,12 @@ export const BillingPage: FC<{ account: Account; limits: PlanLimits; activeCheck
     {notice ? <div class="banner ok">{notice}</div> : null}
     <Errors errors={errors} />
     <p>
-      You are on the <strong>{limits.label}</strong> plan, using {activeChecks} of {limits.maxChecks} checks.
+      You are on the <strong>{limits.label}</strong> plan, using {activeChecks} of {limits.maxChecks} <CheckTerm>checks</CheckTerm>. One
+      check watches one automation; paused checks don’t count.
     </p>
     {limits.plan !== 'free' && account.planCancelAt ? (
       <div class="banner">
-        <strong>Your subscription is cancelled.</strong> You keep everything in {limits.label} until <DateOnly at={account.planCancelAt} />,
+        <strong>Your subscription is canceled.</strong> You keep everything in {limits.label} until <DateOnly at={account.planCancelAt} />,
         because that time is already paid for. After that your account moves to Free and checks over the Free limit are paused, not
         deleted. Changed your mind? Use <strong>Manage billing</strong> to keep your plan.
       </div>
