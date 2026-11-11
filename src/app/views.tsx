@@ -5,7 +5,7 @@ import { describeExpectation, formatDuration } from '../core/describe';
 import { describeChanges, diffShape } from '../core/drift';
 import type { CheckConfig, CheckStatus } from '../core/evaluate';
 import { PLANS, type PlanLimits } from '../core/plans';
-import { baselineRows, learningPeriod, LEARNING_DAYS } from '../core/volume';
+import { baselineRows, learningPeriod, learningReadyAt, LEARNING_DAYS } from '../core/volume';
 import { shapeKeys } from '../shared/fingerprint';
 import { FLAG_MALFORMED, FLAG_THROTTLED, FLAG_TOO_LARGE } from '../shared/messages';
 import type { Account } from './auth';
@@ -626,7 +626,8 @@ const VolumePanel: FC<{ check: Check; now: number }> = ({ check, now }) => {
         <h2 style="margin-top:0">Volume baseline</h2>
         <p>
           <strong>Learning what is normal:</strong> day {day} of {LEARNING_DAYS}. We expect to have a baseline for you to review around{' '}
-          <Time at={period.end} abs />. No alerts are sent while we learn.
+          <Time at={learningReadyAt(check.firstPingAt, check.cfg.timezone)} abs />, and we will email you when it is. No alerts are sent
+          while we learn.
         </p>
       </div>
     );
@@ -638,6 +639,7 @@ const VolumePanel: FC<{ check: Check; now: number }> = ({ check, now }) => {
         <p>
           Here is what we learned from {b.days} days of pings. If it looks right, switch alerts on. We will tell you when a day’s total falls
           below {pct}% of what is typical for that day{b.granularity === 'hourly' ? ' (this check is busy enough that we also compare hour by hour)' : ''}.
+          {b.granularity === 'daily' ? ` Each day is checked at 08:00 the next morning (${check.cfg.timezone}).` : ''}
         </p>
         {table}
         <p style="margin-top:14px">
@@ -655,6 +657,7 @@ const VolumePanel: FC<{ check: Check; now: number }> = ({ check, now }) => {
         <h2 style="margin-top:0">Volume baseline</h2>
         <p>
           Volume alerts are <strong>on</strong>: we alert when {b.granularity === 'hourly' ? 'an hour' : 'a day'} falls below {pct}% of normal.
+          {b.granularity === 'daily' ? ` Each day is checked at 08:00 the next morning (${check.cfg.timezone}).` : ''}
         </p>
         {table}
         <p style="margin-top:14px">{relearn}</p>

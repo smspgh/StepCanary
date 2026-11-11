@@ -63,6 +63,22 @@ export function learningPeriod(firstPingAt: number, tz: string): Interval {
   return { start: start.toMillis(), end: start.plus({ days: LEARNING_DAYS }).startOf('day').toMillis() };
 }
 
+/**
+ * Daily results are judged, and baselines announced, at this hour in the check's timezone, so
+ * the email lands at the start of the working day instead of just after midnight.
+ */
+export const MORNING_HOUR = 8;
+
+/** 08:00 local on the day that starts at `dayStart` (a local midnight). DST-safe. */
+export function morningOf(dayStart: number, tz: string): number {
+  return DateTime.fromMillis(dayStart, { zone: tz }).set({ hour: MORNING_HOUR, minute: 0, second: 0, millisecond: 0 }).toMillis();
+}
+
+/** When a learning check's baseline is computed and offered for review: 08:00 after day 14. */
+export function learningReadyAt(firstPingAt: number, tz: string): number {
+  return morningOf(learningPeriod(firstPingAt, tz).end, tz);
+}
+
 /** The most recent 14 complete local days (used by "recompute baseline"). */
 export function recentPeriod(now: number, tz: string): Interval {
   const end = DateTime.fromMillis(now, { zone: tz }).startOf('day');
@@ -141,10 +157,20 @@ function bucketContaining(b: Baseline, tz: string, t: number): Interval {
   return { start, end: start + HOUR_MS };
 }
 
-/** The most recent bucket that closed at least SETTLE_MS before `asOf`. */
+/**
+ * When a closed bucket is judged: a day at 08:00 the next morning (check timezone), an hour
+ * five minutes after it ends.
+ */
+function judgedAt(b: Baseline, tz: string, bucket: Interval): number {
+  return b.granularity === 'daily' ? morningOf(bucket.end, tz) : bucket.end + SETTLE_MS;
+}
+
+/** The most recent bucket whose judging time has arrived by `asOf`. */
 export function lastClosedBucket(b: Baseline, tz: string, window: ActiveWindow | null, asOf: number): VolumeBucket {
-  const current = bucketContaining(b, tz, asOf - SETTLE_MS);
-  const { start, end } = bucketContaining(b, tz, current.start - 1);
+  const current = bucketContaining(b, tz, asOf);
+  let closed = bucketContaining(b, tz, current.start - 1);
+  if (asOf < judgedAt(b, tz, closed)) closed = bucketContaining(b, tz, closed.start - 1);
+  const { start, end } = closed;
   const dt = DateTime.fromMillis(start, { zone: tz });
   const dayName = dt.toFormat('cccc');
   if (b.granularity === 'daily') {
@@ -162,9 +188,11 @@ export function lastClosedBucket(b: Baseline, tz: string, window: ActiveWindow |
   };
 }
 
-/** When the bucket that is open at `asOf` can be judged. */
+/** The next judging time strictly after `asOf`. */
 export function nextVolumeEvalAt(b: Baseline, tz: string, asOf: number): number {
-  return bucketContaining(b, tz, asOf - SETTLE_MS).end + SETTLE_MS;
+  const current = bucketContaining(b, tz, asOf);
+  const previous = judgedAt(b, tz, bucketContaining(b, tz, current.start - 1));
+  return asOf < previous ? previous : judgedAt(b, tz, current);
 }
 
 /** Pings counted towards a bucket: only hours inside the active window. */

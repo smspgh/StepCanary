@@ -17,7 +17,8 @@ Everything except paid upgrades works without Stripe. Until Part B is done the P
    npm run migrate
    ```
 
-   Expect `= 0001_init.sql (already applied)` then `+ 0002_step3.sql`. The change only adds
+   Expect `= 0001_init.sql (already applied)`, then `+ 0002_step3.sql` and
+   `+ 0003_baseline_notice.sql`. The change only adds
    tables and columns, so the currently deployed code keeps working while you do the next steps.
 
 2. **Create the channel encryption key** and store it in your password manager as
@@ -92,7 +93,7 @@ same steps in live mode.
 |---|---|
 | Runaway loop | Above 60 pings a minute per check we answer 200 but stop queueing them, and queue one marker a minute instead. One "Runaway loop detected" alert; it closes by itself 10 minutes after the loop stops. The limit is enforced per Cloudflare location, so it is approximate. |
 | Payload drift | Off by default, per check. The first payload defines normal. A change raises one alert and stays open until the user clicks "Accept new shape" or "Mark as optional". Drift never marks a check down. |
-| Volume baseline | Learns for 14 full days, then shows the baseline. Nothing alerts until the user turns it on. Judged per day (per hour only for checks averaging 20+ pings an hour), a few minutes after the day ends in the check's timezone. Days with nothing normally expected, and days touched by a monitoring gap, are skipped. |
+| Volume baseline | Learns for 14 full days, then emails the account owner once that the baseline is ready to review. Nothing alerts until the user turns it on. Each day is judged at 08:00 the next morning in the check's timezone, so alerts arrive at the start of the working day (checks averaging 20+ pings an hour are also judged hour by hour). Days with nothing normally expected, and days touched by a monitoring gap, are skipped. |
 | Channels | New channels attach to all existing checks. Webhook URLs are encrypted and never shown again. Free accounts only ever get email. |
 | Weekly summary | Agency only. One email per client folder, sent to the account owner on Mondays from 09:00 UTC, covering the previous Monday-Sunday. Not sent for a week before the folder existed. |
 | Downgrade | Checks using paid features are paused first, then the least recently pinged beyond the limit. Nothing is deleted, and upgrading again resumes them. |
@@ -101,6 +102,5 @@ same steps in live mode.
 
 - Drift and baseline actions need the user to be signed in; the alert link opens the check page
   where the buttons are, rather than acting straight from the email.
-- A newly ready baseline is shown on the dashboard ("baseline ready") but is not announced by email.
-- Volume alerts for daily checks arrive shortly after local midnight, not during the day.
+- A daily volume drop is reported the next morning at 08:00, not on the day it happens.
 - Extra email recipients are not supported yet; email alerts go to the account's own address.

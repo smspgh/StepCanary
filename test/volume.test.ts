@@ -6,6 +6,7 @@ import {
   judgeVolume,
   lastClosedBucket,
   learningPeriod,
+  learningReadyAt,
   nextVolumeEvalAt,
   recentPeriod,
   SETTLE_MS,
@@ -99,15 +100,35 @@ describe('learning a volume baseline', () => {
 describe('judging volume', () => {
   const daily = computeBaseline({ counts: fill(period.start, period.end, 'UTC', officeHours), period, timezone: 'UTC', window: null, gaps: [] });
 
-  it('judges the most recent closed day, once pings have had time to settle', () => {
-    const tueMidnight = at('2026-10-20 00:00');
-    // Just after midnight the day that closed is not judged yet...
-    expect(lastClosedBucket(daily, 'UTC', null, tueMidnight + 2 * MIN).start).toBe(at('2026-10-18 00:00'));
-    // ...five minutes later it is.
-    const b = lastClosedBucket(daily, 'UTC', null, tueMidnight + SETTLE_MS + MIN);
-    expect([b.start, b.end]).toEqual([at('2026-10-19 00:00'), tueMidnight]);
+  it('judges yesterday at 08:00 in the check timezone, not at midnight', () => {
+    const tz = 'America/Chicago';
+    const b0 = computeBaseline({ counts: fill(at('2026-10-05 00:00', tz), at('2026-10-19 00:00', tz), tz, officeHours), period: { start: at('2026-10-05 00:00', tz), end: at('2026-10-19 00:00', tz) }, timezone: tz, window: null, gaps: [] });
+    // Just after midnight on Tuesday, Monday is closed but not judged yet: nobody wants a 00:01 alert.
+    expect(lastClosedBucket(b0, tz, null, at('2026-10-20 00:01', tz)).start).toBe(at('2026-10-18 00:00', tz));
+    expect(lastClosedBucket(b0, tz, null, at('2026-10-20 07:59', tz)).start).toBe(at('2026-10-18 00:00', tz));
+    expect(nextVolumeEvalAt(b0, tz, at('2026-10-20 00:01', tz))).toBe(at('2026-10-20 08:00', tz));
+    // At 08:00 local, Monday is judged.
+    const b = lastClosedBucket(b0, tz, null, at('2026-10-20 08:00', tz));
+    expect([b.start, b.end]).toEqual([at('2026-10-19 00:00', tz), at('2026-10-20 00:00', tz)]);
     expect(b).toMatchObject({ expected: 40, when: 'on a Monday', label: 'Mon 19 Oct' });
-    expect(nextVolumeEvalAt(daily, 'UTC', tueMidnight + SETTLE_MS + MIN)).toBe(at('2026-10-21 00:00') + SETTLE_MS);
+    expect(nextVolumeEvalAt(b0, tz, at('2026-10-20 08:00', tz))).toBe(at('2026-10-21 08:00', tz));
+    expect(nextVolumeEvalAt(daily, 'UTC', at('2026-10-20 15:00'))).toBe(at('2026-10-21 08:00'));
+  });
+
+  it('keeps the 08:00 wall-clock time across a DST change', () => {
+    const tz = 'America/New_York';
+    // Sunday 1 Nov 2026 is the 25-hour day. Its result is due Monday 08:00 EST (13:00 UTC).
+    expect(new Date(nextVolumeEvalAt(daily, tz, at('2026-11-01 12:00', tz))).toISOString()).toBe('2026-11-02T13:00:00.000Z');
+    // Saturday's result was due Sunday 08:00 local, which is still 08:00 on the wall clock (13:00 UTC, after the change at 02:00).
+    expect(new Date(nextVolumeEvalAt(daily, tz, at('2026-11-01 01:00', tz))).toISOString()).toBe('2026-11-01T13:00:00.000Z');
+    expect(new Date(learningReadyAt(at('2026-10-17 15:00', tz), tz)).toISOString()).toBe('2026-11-01T13:00:00.000Z');
+  });
+
+  it('still judges busy checks hour by hour, five minutes after each hour', () => {
+    const busy = computeBaseline({ counts: fill(period.start, period.end, 'UTC', () => 50), period, timezone: 'UTC', window: null, gaps: [] });
+    expect(lastClosedBucket(busy, 'UTC', null, at('2026-10-20 15:04')).start).toBe(at('2026-10-20 13:00'));
+    expect(lastClosedBucket(busy, 'UTC', null, at('2026-10-20 15:04') + MIN).start).toBe(at('2026-10-20 14:00'));
+    expect(nextVolumeEvalAt(busy, 'UTC', at('2026-10-20 15:04'))).toBe(at('2026-10-20 15:00') + SETTLE_MS);
   });
 
   it('alerts below the chosen percentage of normal, and never for normally quiet days', () => {

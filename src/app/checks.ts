@@ -3,7 +3,7 @@
 import { acceptShape, markOptional } from '../core/drift';
 import { scheduleNextEval, type CheckState } from '../core/evaluate';
 import type { ValidatedCheck } from '../core/validate';
-import { learningPeriod, nextVolumeEvalAt, SETTLE_MS } from '../core/volume';
+import { learningReadyAt, nextVolumeEvalAt } from '../core/volume';
 import { makeToken, randomId } from '../shared/token';
 import { iso, latestGapEnd, ms, toCheck, type Check, type Db } from './db';
 
@@ -71,7 +71,7 @@ export async function updateCheck(db: Db, check: Check, v: ValidatedCheck, now: 
   if (volume) {
     if (check.state.status === 'paused' || check.state.status === 'new') nextEval = null;
     else if (baselineStatus === 'active' && baseline) nextEval = nextVolumeEvalAt(baseline, v.cfg.timezone, now);
-    else if (baselineStatus === 'learning' && check.firstPingAt != null) nextEval = learningPeriod(check.firstPingAt, v.cfg.timezone).end + SETTLE_MS;
+    else if (baselineStatus === 'learning' && check.firstPingAt != null) nextEval = learningReadyAt(check.firstPingAt, v.cfg.timezone);
     else nextEval = null;
   } else if (running) {
     nextEval = scheduleNextEval(v.cfg, state, await latestGapEnd(db));
@@ -90,12 +90,15 @@ export async function updateCheck(db: Db, check: Check, v: ValidatedCheck, now: 
               drift_enabled = $15, folder_id = $16,
               accepted_shape = CASE WHEN $17::boolean THEN NULL ELSE accepted_shape END,
               optional_paths = CASE WHEN $17::boolean THEN NULL ELSE optional_paths END,
-              pending_shape = CASE WHEN $17::boolean THEN NULL ELSE pending_shape END
+              pending_shape = CASE WHEN $17::boolean THEN NULL ELSE pending_shape END,
+              baseline_notified_at = CASE WHEN $18::boolean THEN NULL ELSE baseline_notified_at END
         WHERE id = $1`,
       [check.id, v.name, v.cfg.mode, v.cfg.intervalSeconds, v.cfg.cron, v.cfg.timezone, v.cfg.graceSeconds,
         v.cfg.activeWindow ? JSON.stringify(v.cfg.activeWindow) : null, state.status, iso(state.clockResetAt), iso(nextEval),
         v.cfg.volumeThresholdPct ?? null, baselineStatus, baseline ? JSON.stringify(baseline) : null,
-        v.driftEnabled === true, v.folderId ?? null, driftTurnedOn || driftTurnedOff],
+        v.driftEnabled === true, v.folderId ?? null, driftTurnedOn || driftTurnedOff,
+        // Switching into volume mode starts a fresh learning period, which earns a fresh "ready" email.
+        volume && !wasVolume],
     );
     if (driftTurnedOff) {
       await tx.query(`UPDATE incidents SET resolved_at = $2::timestamptz WHERE check_id = $1 AND kind = 'drift' AND resolved_at IS NULL`, [check.id, iso(now)]);
@@ -122,7 +125,7 @@ export async function resumeCheck(db: Db, check: Check, now: number): Promise<vo
   if (check.cfg.mode !== 'volume') nextEval = scheduleNextEval(check.cfg, state, await latestGapEnd(db));
   else if (state.status === 'new') nextEval = null;
   else if (check.baselineStatus === 'active' && check.baseline) nextEval = nextVolumeEvalAt(check.baseline, check.cfg.timezone, now);
-  else if (check.baselineStatus === 'learning' && check.firstPingAt != null) nextEval = learningPeriod(check.firstPingAt, check.cfg.timezone).end + SETTLE_MS;
+  else if (check.baselineStatus === 'learning' && check.firstPingAt != null) nextEval = learningReadyAt(check.firstPingAt, check.cfg.timezone);
   else nextEval = null;
   await db.query(
     `UPDATE checks SET status = $2, clock_reset_at = $3::timestamptz, next_eval_at = $4::timestamptz, status_changed_at = $3::timestamptz,
@@ -154,10 +157,12 @@ export async function enableBaseline(db: Db, check: Check, now: number): Promise
 export async function proposeBaseline(db: Db, check: Check, baseline: unknown, now: number): Promise<void> {
   await db.tx(async (tx) => {
     await tx.query(
+      // The user asked for this and is looking at the result, so no "baseline ready" email.
       `UPDATE checks SET baseline = $2::text::jsonb, baseline_status = 'ready', next_eval_at = NULL,
+              baseline_notified_at = COALESCE(baseline_notified_at, $3::timestamptz),
               status = CASE WHEN status = 'down' THEN 'up' ELSE status END
         WHERE id = $1 AND mode = 'volume'`,
-      [check.id, JSON.stringify(baseline)],
+      [check.id, JSON.stringify(baseline), iso(now)],
     );
     await tx.query(`UPDATE incidents SET resolved_at = $2::timestamptz WHERE check_id = $1 AND kind = 'down' AND resolved_at IS NULL`, [check.id, iso(now)]);
   });

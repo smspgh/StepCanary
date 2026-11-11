@@ -27,6 +27,9 @@ automation ──HTTP──▶ ingest Worker ──▶ Queue ──▶ app Worke
 | `docs/DEPLOY.md` | First deployment, step by step. |
 | `docs/STEP3.md` | Rolling out Step 3, Stripe setup, and how the new features behave. |
 | `docs/RUNBOOK.md` | What to do when something breaks. |
+| `docs/guides/` | Customer onboarding guides for Zapier, Make, n8n and Pipedream. |
+| `docs/LAUNCH-CHECKLIST.md` | What to finish before the first paying customer. |
+| `docs/MAINTENANCE.md` | Recurring tasks with time estimates. |
 
 ## Reliability rules, and where they live
 

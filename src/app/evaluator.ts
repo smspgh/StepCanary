@@ -16,7 +16,7 @@ import {
   learningPeriod,
   nextVolumeEvalAt,
   recentPeriod,
-  SETTLE_MS,
+  learningReadyAt,
   type Baseline,
 } from '../core/volume';
 import { openIncident, resolveIncident } from './alerts';
@@ -177,7 +177,7 @@ export async function evaluateVolume(db: Db, check: Check, asOf: number, appUrl:
 
   if (check.baselineStatus === 'learning') {
     if (check.firstPingAt == null) return reschedule(db, check.id, null);
-    const ready = learningPeriod(check.firstPingAt, tz).end + SETTLE_MS;
+    const ready = learningReadyAt(check.firstPingAt, tz);
     if (asOf < ready) return reschedule(db, check.id, ready);
     const baseline = await learnBaseline(db, check, asOf);
     if (!baseline) return reschedule(db, check.id, asOf + DAY_MS); // not enough clean days yet

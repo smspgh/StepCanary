@@ -193,3 +193,18 @@ export function composeAlert(event: AlertEvent, ctx: AlertContext): AlertMessage
     link: ctx.link,
   };
 }
+
+/** Email sent once when a volume check has finished its 14 days of learning. */
+export function composeBaselineReady(name: string, link: string): AlertMessage {
+  return {
+    subject: `Your 14-day volume baseline for "${name}" is ready to review`,
+    body: [
+      `We have finished learning what normal looks like for your automation "${name}".`,
+      '',
+      'Volume alerts are not on yet. Open the check to see the typical number of runs for each day of the week. If it looks right, switch volume alerts on with one click; if it does not, you can adjust the threshold or relearn.',
+      '',
+      'Until you switch it on, we will not alert you about low volume for this automation.',
+    ].join('\n'),
+    link,
+  };
+}

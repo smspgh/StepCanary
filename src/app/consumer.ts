@@ -4,7 +4,7 @@
 
 import { describeChanges, diffShape } from '../core/drift';
 import { applyEvents, type PingEvent } from '../core/evaluate';
-import { learningPeriod, SETTLE_MS } from '../core/volume';
+import { learningReadyAt } from '../core/volume';
 import type { Shape } from '../shared/fingerprint';
 import { FLAG_MALFORMED, FLAG_THROTTLED, FLAG_TOO_LARGE, isPingMessage, type PingMessage } from '../shared/messages';
 import { openIncident, resolveIncident } from './alerts';
@@ -152,7 +152,7 @@ async function applyToCheck(tx: Db, check: Check, list: PingMessage[], gapEnd: n
   let nextEvalAt = result.nextEvalAt;
   // A volume check starts its 14-day learning period with its first ping.
   if (check.cfg.mode === 'volume' && check.firstPingAt == null && check.baselineStatus === 'learning' && s.status === 'up') {
-    nextEvalAt = learningPeriod(firstPingAt, check.cfg.timezone).end + SETTLE_MS;
+    nextEvalAt = learningReadyAt(firstPingAt, check.cfg.timezone);
   }
 
   const throttled = ordered.filter((m) => m.f & FLAG_THROTTLED);

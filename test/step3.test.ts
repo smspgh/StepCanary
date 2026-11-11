@@ -278,12 +278,12 @@ describe('volume baseline, end to end', () => {
     let c = await reload(check.id);
     expect(c).toMatchObject({ baselineStatus: 'learning', firstPingAt: first });
     expect(c.state.status).toBe('up');
-    expect(c.nextEvalAt).toBe(at('2026-10-16 00:05'));
+    expect(c.nextEvalAt).toBe(at('2026-10-16 08:00'));
 
-    await evalAt(check.id, '2026-10-10 00:06'); // too early: still learning
+    await evalAt(check.id, '2026-10-16 00:30'); // day 14 is over, but it is the middle of the night: wait for 08:00
     expect((await reload(check.id)).baselineStatus).toBe('learning');
 
-    await evalAt(check.id, '2026-10-16 00:06');
+    await evalAt(check.id, '2026-10-16 08:01');
     c = await reload(check.id);
     expect(c.baselineStatus).toBe('ready');
     expect(c.baseline).toMatchObject({ granularity: 'daily', days: 14, daily: { '1': 40, '5': 40, '6': 0, '7': 0 } });
@@ -291,18 +291,18 @@ describe('volume baseline, end to end', () => {
 
     // A terrible day before it is enabled raises nothing.
     await seedDay(check.id, '2026-10-16', 1);
-    await evalAt(check.id, '2026-10-17 00:06');
+    await evalAt(check.id, '2026-10-17 08:01');
     expect(await count('incidents')).toBe(0);
   });
 
   it('alerts when a day falls below the threshold, in plain English, and recovers on the next normal day', async () => {
     const check = await learnedCheck();
-    await evalAt(check.id, '2026-10-16 00:06');
-    expect(await enableBaseline(db, await reload(check.id), at('2026-10-16 00:10'))).toBe(true);
-    expect((await reload(check.id)).nextEvalAt).toBe(at('2026-10-17 00:05'));
+    await evalAt(check.id, '2026-10-16 08:01');
+    expect(await enableBaseline(db, await reload(check.id), at('2026-10-16 08:10'))).toBe(true);
+    expect((await reload(check.id)).nextEvalAt).toBe(at('2026-10-17 08:00'));
 
     await seedDay(check.id, '2026-10-16', 3); // Friday: usually 40
-    expect(await evalAt(check.id, '2026-10-17 00:06')).toBe(true);
+    expect(await evalAt(check.id, '2026-10-17 08:01')).toBe(true);
     expect((await reload(check.id)).state.status).toBe('down');
     let sent = await deliveries();
     expect(sent).toHaveLength(1);
@@ -315,13 +315,13 @@ describe('volume baseline, end to end', () => {
     expect((await reload(check.id)).state.status).toBe('down');
 
     // Saturday and Sunday are normally silent: not judged, no extra alerts, still down.
-    await evalAt(check.id, '2026-10-18 00:06');
-    await evalAt(check.id, '2026-10-19 00:06');
+    await evalAt(check.id, '2026-10-18 08:01');
+    await evalAt(check.id, '2026-10-19 08:01');
     expect((await reload(check.id)).state.status).toBe('down');
     expect(await count('alert_deliveries')).toBe(1);
 
     await seedDay(check.id, '2026-10-19', 37); // Monday back to normal
-    expect(await evalAt(check.id, '2026-10-20 00:06')).toBe(true);
+    expect(await evalAt(check.id, '2026-10-20 08:01')).toBe(true);
     expect((await reload(check.id)).state.status).toBe('up');
     sent = await deliveries();
     expect(sent.map((d) => d.event)).toEqual(['down', 'recovered']);
@@ -330,34 +330,34 @@ describe('volume baseline, end to end', () => {
 
   it('never alerts for a weekend dip, a day hit by a monitoring gap, or the same day twice', async () => {
     const check = await learnedCheck();
-    await evalAt(check.id, '2026-10-16 00:06');
-    await enableBaseline(db, await reload(check.id), at('2026-10-16 00:10'));
+    await evalAt(check.id, '2026-10-16 08:01');
+    await enableBaseline(db, await reload(check.id), at('2026-10-16 08:10'));
     await seedDay(check.id, '2026-10-16', 41);
-    await evalAt(check.id, '2026-10-17 00:06'); // normal Friday
-    await evalAt(check.id, '2026-10-18 00:06'); // Saturday: zero pings, zero expected
-    await evalAt(check.id, '2026-10-19 00:06'); // Sunday
+    await evalAt(check.id, '2026-10-17 08:01'); // normal Friday
+    await evalAt(check.id, '2026-10-18 08:01'); // Saturday: zero pings, zero expected
+    await evalAt(check.id, '2026-10-19 08:01'); // Sunday
     expect(await count('incidents')).toBe(0);
 
     // Monday: we had an outage, and (as far as we can tell) no pings arrived.
     await recordGap(db, at('2026-10-19 11:00'), at('2026-10-19 12:30'), 'ingest_stalled');
-    expect(await evalAt(check.id, '2026-10-20 00:06')).toBe(false);
+    expect(await evalAt(check.id, '2026-10-20 08:01')).toBe(false);
     expect(await count('incidents')).toBe(0);
     expect((await reload(check.id)).state.status).toBe('up');
 
     // Tuesday really is low. Evaluating it twice still gives one incident.
     await seedDay(check.id, '2026-10-20', 2);
-    await evalAt(check.id, '2026-10-21 00:06');
-    await evalAt(check.id, '2026-10-21 00:07');
+    await evalAt(check.id, '2026-10-21 08:01');
+    await evalAt(check.id, '2026-10-21 08:02');
     expect(await count('incidents')).toBe(1);
     expect(await count('alert_deliveries')).toBe(1);
   });
 
   it('is picked up by the every-minute evaluator when due', async () => {
     const check = await learnedCheck();
-    await evalAt(check.id, '2026-10-16 00:06');
-    await enableBaseline(db, await reload(check.id), at('2026-10-16 00:10'));
+    await evalAt(check.id, '2026-10-16 08:01');
+    await enableBaseline(db, await reload(check.id), at('2026-10-16 08:10'));
     await seedDay(check.id, '2026-10-16', 0);
-    const start = at('2026-10-17 00:00');
+    const start = at('2026-10-17 07:55');
     for (let t = start; t <= start + 10 * MIN; t += MIN) await tick(t);
     expect((await reload(check.id)).state.status).toBe('down');
     expect(await count('incidents', "reason = 'low_volume'")).toBe(1);
